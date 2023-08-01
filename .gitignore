@@ -1,0 +1,10 @@
+.vscode
+isop
+build*/
+*.o
+*.log
+*.csv
+*.aig
+*.blif
+test_cuda*
+.cache/
