@@ -674,6 +674,9 @@ totalAlgTime += prevAlgTime;
     updateDeviceStats<<<1, 1>>>(nEntries, nPIs, d_pnNodes, d_pnObjs);
     cudaDeviceSynchronize();
 
+    nNodes = nEntries;
+    nObjs = nEntries + nPIs + 1;
+
     cudaFree(d_pFanin0);
     cudaFree(d_pFanin1);
     cudaFree(d_pOuts);
@@ -682,6 +685,8 @@ totalAlgTime += prevAlgTime;
     d_pFanin1 = vFanin1;
     d_pOuts = vPOs;
     d_pNumFanouts = vNumFanouts;
+
+    assert(deviceAllocated);
 
     nLevels = -1; // the levels of the AIG is not computed in balancing!
 
