@@ -8,6 +8,7 @@ struct VecsMem {
         if (nWords <= 0)
             return NULL;
         if (nSize + nWords > nCap) {
+            printf("try to decrease K in refactor !!!\n");
             assert(0);
             return NULL;
         }

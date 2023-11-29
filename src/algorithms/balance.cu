@@ -255,14 +255,14 @@ void getTopTwoNodes(int * vLocalReconstructArrays, int * vLocalReconstructLevels
         vLocalReconstructArrays, vLocalReconstructLevels, vLocalReconstructLens, 
         htReconstructKeys, htReconstructValues, htReconstructCapacity, nReadyCovers, maxCoverLen
     );
-    // cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
     prepareDataToInsert<<<NUM_BLOCKS(nReadyCovers, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
         vLocalReconstructArrays, vLocalReconstructLevels, vLocalReconstructLens, 
         vStepNodeKeys, vStepNodeValues, vStepNodeMask, vStepNodeLevels, 
         htReconstructKeys, htReconstructValues, htReconstructCapacity, 
         htLevelKeys, htLevelValues, htLevelCapacity, newIdCounter, nReadyCovers, nPIs, nPOs, maxCoverLen
     );
-    // cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
 
 }
 
@@ -715,7 +715,11 @@ __device__ int localCoverTravToTable(int nodeLit, const int * pFanin0, const int
         
         // encounter cover input nodes
         nodeId = dUtils::AigNodeID(currLit);
-        if (currLit != nodeLit && (dUtils::AigNodeIsComplement(currLit) || !dUtils::AigIsNode(nodeId, nPIs) || pNumFanouts[nodeId] > 1)) {
+        // if (currLit != nodeLit && (dUtils::AigNodeIsComplement(currLit) || !dUtils::AigIsNode(nodeId, nPIs) || pNumFanouts[nodeId] > 1)) {
+        if (currLit != nodeLit && 
+            (dUtils::AigNodeIsComplement(currLit) || !dUtils::AigIsNode(nodeId, nPIs) || pNumFanouts[nodeId] > 1 
+                || stackTop+2>=DFS_COVER_STACK_SIZE || *superLen+2*(stackTop+1)+1 >= MAX_LOCAL_COVER_SIZE )
+            ) {
             // add one node into cover table
             if (columnPtr == COVER_TABLE_NUM_COLS) {
                 // expand a new row
@@ -896,7 +900,7 @@ __global__ void processPO(const int * d_pOuts, const int * vNodeCoverIdMapping, 
             }
             assert(outId != (HASHTABLE_EMPTY_VALUE<uint32, uint32>));
 
-            vNewOuts[idx] = dUtils::AigNodeLitCond(outId, dUtils::AigNodeIsComplement(oldLit));
+            vNewOuts[idx] = dUtils::AigNodeLitCond(outId, dUtils::AigNodeIsComplement(oldLit)^dUtils::AigNodeIsComplement(newLit));
             atomicAdd(&vNumFanoutsNew[outId], 1);
         }
     }
@@ -1003,7 +1007,7 @@ std::tuple<int *, int *, int *, int *, int>
         );
         // gpuErrchk( cudaPeekAtLastError() );
         // gpuErrchk( cudaDeviceSynchronize() );
-        // cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
 
         // gather the indices where vNodesStatus = 1 to the next level's vNodes
         int * pNewGlobalListEnd = thrust::copy_if(
@@ -1114,15 +1118,23 @@ std::tuple<int *, int *, int *, int *, int>
     findLevelNodeRanges<<<NUM_BLOCKS(nCovers, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(vLastAppearLevel, vLastAppearLevelRanges, nCovers);
     cudaDeviceSynchronize();
 
+    // int iterLen = 100000000;
+    const int iterLen = 32768;
+
     int * levelRanges = (int *) malloc(levelCount * sizeof(int));
     cudaMemcpy(levelRanges, vLastAppearLevelRanges, levelCount * sizeof(int), cudaMemcpyDeviceToHost);
+
+    int maxReadyCovers = levelRanges[0];
+    for(int i=1; i<levelCount; i++)
+        maxReadyCovers = max(maxReadyCovers, levelRanges[i] - levelRanges[i-1]);
+    maxReadyCovers = min(maxReadyCovers, iterLen);
 
     cudaMalloc(&vCoverNodeIdMapping, (nCovers + 1) * sizeof(int));
     cudaMalloc(&vCoverNodeNewLitMapping, (nCovers + 1) * sizeof(int));
     cudaMalloc(&vThisIterReady, (nCovers + 1) * sizeof(int));
     cudaMalloc(&vGatheredReadyCovers, nCovers * sizeof(int));
-    cudaMalloc(&vLocalReconstructArrays, nCovers * maxCoverLen * sizeof(int));
-    cudaMalloc(&vLocalReconstructLevels, nCovers * maxCoverLen * sizeof(int));
+    gpuErrchk( cudaMalloc(&vLocalReconstructArrays, (size_t)maxReadyCovers * (size_t)maxCoverLen * sizeof(int)) );
+    gpuErrchk( cudaMalloc(&vLocalReconstructLevels, (size_t)maxReadyCovers * (size_t)maxCoverLen * sizeof(int)) );
     cudaMalloc(&vLocalReconstructLens, nCovers * sizeof(int));
     cudaMalloc(&vStepNodeKeys, nCovers * sizeof(uint64));
     cudaMalloc(&vStepNodeValues, nCovers * sizeof(uint32));
@@ -1164,9 +1176,6 @@ std::tuple<int *, int *, int *, int *, int>
             printf("Number of ready covers: %d\n", nReadyCovers);
         nReconstructed += nReadyCovers;
 
-        int iterLen = 100000000;
-        // int iterLen = 1;
-        if (iterLen > nReadyCovers) iterLen = nReadyCovers;
         int innerExpandTimes = (nReadyCovers + iterLen - 1) / iterLen;
         for (int i = 0; i < innerExpandTimes; i++) {
             int thisReadyStartIdx = readyStartIdx + i * iterLen;
@@ -1241,6 +1250,8 @@ std::tuple<int *, int *, int *, int *, int>
                     vLocalReconstructArrays, vLocalReconstructLevels, vLocalReconstructLens, 
                     vStepNodeValues, vStepNodeMask, vStepNodeLevels, thisReadyCovers, maxCoverLen
                 );
+                cudaDeviceSynchronize();
+
             }
 
             // 2.3 add newly constructed cover output nodes into vCoverNodeNewLitMapping
@@ -1250,7 +1261,7 @@ std::tuple<int *, int *, int *, int *, int>
                 thisReadyCovers, maxCoverLen
             );
             
-            // cudaDeviceSynchronize();
+            cudaDeviceSynchronize();
             // printf("\n");
         }
 
@@ -1287,9 +1298,9 @@ std::tuple<int *, int *, int *, int *, int>
 
     int nObjsNew = nEntries + nPIs + 1;
     int * vFanin0New, * vFanin1New, * vNumFanoutsNew;
-    cudaMalloc(&vFanin0New, nObjsNew * sizeof(int));
-    cudaMalloc(&vFanin1New, nObjsNew * sizeof(int));
-    cudaMalloc(&vNumFanoutsNew, nObjsNew * sizeof(int));
+    gpuErrchk( cudaMalloc(&vFanin0New, sizeof(int) * nObjsNew) );
+    gpuErrchk( cudaMalloc(&vFanin1New, sizeof(int) * nObjsNew) );
+    gpuErrchk( cudaMalloc(&vNumFanoutsNew, sizeof(int) * nObjsNew) );
     cudaMemset(vNumFanoutsNew, 0, nObjsNew * sizeof(int));
 
     // PI fanin info should be the same as before
@@ -1304,7 +1315,7 @@ std::tuple<int *, int *, int *, int *, int>
     );
 
     // printCoverTable<<<1,1>>>(vCoverTable, vCoverTableLinks, vCoverTableLens);
-    // cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
 
     // get new po literals
     processPO<<<NUM_BLOCKS(nPOs, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(

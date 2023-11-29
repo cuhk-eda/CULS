@@ -505,6 +505,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
         vSubgTable, vSubgLinks, vSubgLens, vResynRoots, vSelectedSubgInd, vOldRoot2NewRootLits, 
         vFinishedMark, nObjs, nResyn
     );
+    cudaDeviceSynchronize();
     pNewListEnd = thrust::remove_if(thrust::device, vResynIdSeq, vResynIdSeq + nResyn, 
                                     vFinishedMark, thrust::identity<int>());
     assert(pNewListEnd - vResynIdSeq <= nResyn);
@@ -519,11 +520,13 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
             iter, vResynIdSeq, vCuts, vCutRanges, htDestKeys, htDestValues, htDestCapacity, 
             vSubgTable, vSubgLinks, vSubgLens, vSelectedSubgInd, idCounter, nReplace
         );
+        cudaDeviceSynchronize();
         updateInsertedIdsIter<<<NUM_BLOCKS(nReplace, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
             iter, vResynRoots, vResynIdSeq, htDestKeys, htDestValues, htDestCapacity, 
             vSubgTable, vSubgLinks, vSubgLens, vSelectedSubgInd, vOldRoot2NewRootLits, 
             vFinishedMark, nReplace
         );
+        cudaDeviceSynchronize();
         // increment idCounter
         assert(idCounter + nReplace < (INT_MAX / 2));
         idCounter += nReplace;
@@ -531,6 +534,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
         // shrink according to vFinishedMark
         pNewListEnd = thrust::remove_if(thrust::device, vResynIdSeq, vResynIdSeq + nReplace, 
                                         vFinishedMark, thrust::identity<int>());
+        cudaDeviceSynchronize();
         assert(pNewListEnd - vResynIdSeq <= nReplace);
         nReplace = pNewListEnd - vResynIdSeq;
         
@@ -542,6 +546,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
     checkInsertion<<<NUM_BLOCKS(nResyn, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
         vResynRoots, vOldRoot2NewRootLits, vSelectedSubgInd, nResyn
     );
+    cudaDeviceSynchronize();
 
     printf("Insertion complete, idCounter = %d\n", idCounter);
 
@@ -641,23 +646,17 @@ reorder(int * vFanin0New, int * vFanin1New, int * pOuts,
         if (vhFanin0[i] != -1 && !isRedundantNode(i, nPIs, vhFanin0)) {
             assert(vhFanin0New[vhNewInd[i]] == -1 && vhFanin1New[vhNewInd[i]] == -1);
             // propagate if fanin is redundant
-            int lit, propLit;
-            if (isRedundantNode(AigNodeID(vhFanin0[i]), nPIs, vhFanin0)) {
-                propLit = vhFanin1[AigNodeID(vhFanin0[i])]; // lit of the redundant node
-                propLit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(propLit)], AigNodeIsComplement(propLit));
-                lit = dUtils::AigNodeNotCond(propLit, AigNodeIsComplement(vhFanin0[i]));
-            } else
-                lit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(vhFanin0[i])], 
-                                             AigNodeIsComplement(vhFanin0[i]));
+            int lit, propLit = vhFanin0[i];
+            while(isRedundantNode(AigNodeID(propLit), nPIs, vhFanin0))
+                propLit = dUtils::AigNodeNotCond(vhFanin1[AigNodeID(propLit)], AigNodeIsComplement(propLit));
+            lit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(propLit)], AigNodeIsComplement(propLit));
+
             vhFanin0New[vhNewInd[i]] = lit;
 
-            if (isRedundantNode(AigNodeID(vhFanin1[i]), nPIs, vhFanin0)) {
-                propLit = vhFanin1[AigNodeID(vhFanin1[i])]; // lit of the redundant node
-                propLit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(propLit)], AigNodeIsComplement(propLit));
-                lit = dUtils::AigNodeNotCond(propLit, AigNodeIsComplement(vhFanin1[i]));
-            } else
-                lit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(vhFanin1[i])], 
-                                             AigNodeIsComplement(vhFanin1[i]));
+            propLit = vhFanin1[i];
+            while(isRedundantNode(AigNodeID(propLit), nPIs, vhFanin0))
+                propLit = dUtils::AigNodeNotCond(vhFanin1[AigNodeID(propLit)], AigNodeIsComplement(propLit));
+            lit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(propLit)], AigNodeIsComplement(propLit));
             vhFanin1New[vhNewInd[i]] = lit;
 
             if (vhFanin0New[vhNewInd[i]] > vhFanin1New[vhNewInd[i]]) {
@@ -673,14 +672,11 @@ reorder(int * vFanin0New, int * vFanin1New, int * pOuts,
         int lit, propLit;
         assert(oldId <= nPIs || vhFanin0[oldId] != -1);
 
-        if (isRedundantNode(oldId, nPIs, vhFanin0)) {
-            // propagate to the new node
-            propLit = vhFanin1[oldId];
-            propLit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(propLit)], AigNodeIsComplement(propLit));
-            lit = dUtils::AigNodeNotCond(propLit, AigNodeIsComplement(pOuts[i]));
-        } else
-            lit = dUtils::AigNodeLitCond(vhNewInd[oldId], AigNodeIsComplement(pOuts[i]));
-        
+        propLit = pOuts[i];
+        while(isRedundantNode(AigNodeID(propLit), nPIs, vhFanin0))
+            propLit = dUtils::AigNodeNotCond(vhFanin1[AigNodeID(propLit)], AigNodeIsComplement(propLit));
+        lit = dUtils::AigNodeLitCond(vhNewInd[AigNodeID(propLit)], AigNodeIsComplement(propLit));
+
         vhOutsNew[i] = lit;
     }
     printf("Reordered network new nObjs: %d, original nObjs: %d\n", nObjsNew, nObjs);
@@ -727,7 +723,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     cudaMalloc(&vNodesIndices, nObjs * sizeof(int));
     cudaMalloc(&vResynRoots, nObjs * sizeof(int));
 
-    cudaMalloc(&vCutTable, nObjs * CUT_TABLE_SIZE * sizeof(int));
+    cudaMalloc(&vCutTable, (size_t)nObjs * CUT_TABLE_SIZE * sizeof(int));
     cudaMalloc(&vCutSizes, nObjs * sizeof(int));
     cudaMalloc(&vNumSaved, nObjs * sizeof(int));
     cudaMemset(vCutSizes, -1, nObjs * sizeof(int));
@@ -760,10 +756,12 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
             vCutTable, vCutSizes, vNumSaved, 
             nPIs, cutSize, currLen
         );
+        cudaDeviceSynchronize();
 
         setStatus<<<NUM_BLOCKS(currLen, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
             vRoots, vCutTable, vCutSizes, vNodesStatus, nPIs, currLen
         );
+        cudaDeviceSynchronize();
 
         pNewGlobalListEnd = thrust::copy_if(
             thrust::device, vNodesIndices, vNodesIndices + nObjs, 
@@ -814,6 +812,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     // gather the cuts to be resyned into a consecutive array
     getCutTruthRanges<<<NUM_BLOCKS(nResyn, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
         vResynRoots, vCutSizes, vCutRanges, vTruthRanges, nResyn);
+    cudaDeviceSynchronize();
     thrust::inclusive_scan(thrust::device, vCutRanges, vCutRanges + nResyn, vCutRanges);
     thrust::inclusive_scan(thrust::device, vTruthRanges, vTruthRanges + nResyn, vTruthRanges);
     cudaDeviceSynchronize();
@@ -824,7 +823,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     cudaMalloc(&vCuts, nCutArrayLen * sizeof(int));
     cudaMalloc(&vTruths, nTruthArrayLen * sizeof(unsigned));
     cudaMalloc(&vTruthsNeg, nTruthArrayLen * sizeof(unsigned));
-    cudaMalloc(&vTruthElem, cutSize * dUtils::TruthWordNum(cutSize) * sizeof(unsigned));
+    gpuErrchk( cudaMalloc(&vTruthElem, (size_t)cutSize * dUtils::TruthWordNum(cutSize) * sizeof(unsigned)) );
 
     Table::gatherTableToConsecutive<int, CUT_TABLE_SIZE>
     <<<NUM_BLOCKS(nResyn, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
@@ -856,12 +855,12 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     // -1: unvisited, 0: last row, >0: next row idx
     int nResynGraphs = 2 * nResyn; // for normal and negated graphs
     cudaMalloc(&vSelectedSubgInd, nResyn * sizeof(int));
-    cudaMalloc(&vSubgTable, 2 * nResynGraphs * SUBG_TABLE_SIZE * sizeof(uint64));
-    cudaMalloc(&vSubgLinks, 2 * nResynGraphs * sizeof(int));
-    cudaMalloc(&vSubgLens, nResynGraphs * sizeof(int));
+    cudaMalloc(&vSubgTable, (size_t)2 * nResynGraphs * SUBG_TABLE_SIZE * sizeof(uint64));
+    cudaMalloc(&vSubgLinks, (size_t)2 * nResynGraphs * sizeof(int));
+    cudaMalloc(&vSubgLens, (size_t)nResynGraphs * sizeof(int));
     cudaMalloc(&pSubgTableNext, sizeof(int));
-    cudaMemset(vSubgLinks, -1, 2 * nResynGraphs * sizeof(int));
-    cudaMemset(vSubgLens, -1, nResynGraphs * sizeof(int));
+    cudaMemset(vSubgLinks, -1, (size_t)2 * nResynGraphs * sizeof(int));
+    cudaMemset(vSubgLens, -1, (size_t)nResynGraphs * sizeof(int));
     cudaMemcpy(pSubgTableNext, &nResynGraphs, sizeof(int), cudaMemcpyHostToDevice);
     cudaDeviceSynchronize();
 
@@ -882,6 +881,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
 
     Aig::buildHashTable<<<NUM_BLOCKS(nNodes, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
         d_pFanin0, d_pFanin1, htKeys, htValues, htCapacity, nNodes, nPIs);
+    cudaDeviceSynchronize();
     
     // the evaluation is DAG-aware, considering shareable node with non-MFFC nodes (vNode2ConeResynIdx unassigned)
     evalFactoredForm<<<NUM_BLOCKS(nResynGraphs, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(

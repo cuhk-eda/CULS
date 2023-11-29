@@ -195,6 +195,7 @@ public:
 
 
     void Delete(int node, int flag = 1) {
+        if(node <= numInputs)   return;
         int in0 = id(fanin0[node]), in1 = id(fanin1[node]);
         Disconnect(node);
         if(ref[in0] == 0)
@@ -205,6 +206,7 @@ public:
     }
 
     int FastDelete(int node) {
+        if(node <= numInputs)   return 0;
         int in0 = id(fanin0[node]), in1 = id(fanin1[node]);
         ref[in0]--;
         ref[in1]--;

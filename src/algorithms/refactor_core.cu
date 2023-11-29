@@ -274,7 +274,9 @@ __global__ void factorFromTruth(const int * vCuts, const int * vCutRanges,
 
         // isop + factor
         minatoIsop(pTruth, nVars, &vecsMem);
+        __syncthreads();
         sopFactor(vecsMem.pArray, vecsMem.nSize, fNeg, vCuts + cutStartIdx, nVars, &vecsMem, &subg);
+        __syncthreads();
 
         // save synthesized graph into global table
         int currRowIdx, lastRowIdx, columnPtr;
@@ -299,6 +301,7 @@ __global__ void factorFromTruth(const int * vCuts, const int * vCutRanges,
             }
             vSubgTable[currRowIdx * SUBG_TABLE_SIZE + (columnPtr++)] = subg.pArray[i];
         }
+        __syncthreads();
 
         // unsigned * vTruthTemp = (unsigned *) malloc(dUtils::TruthWordNum(nVars) * sizeof(unsigned));
         // getSubgTruth(&subg, vCuts + cutStartIdx, nVars, vTruthTemp, vTruthElem, 12);

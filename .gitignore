@@ -8,3 +8,5 @@ build*/
 *.blif
 test_cuda*
 .cache/
+logic_my_suite/
+*.py

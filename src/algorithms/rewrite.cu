@@ -652,7 +652,7 @@ void GPUSolver::Init(int n) {
     ShowMemory();
     cudaMalloc(&selectedCuts, (n + 1) * sizeof(Cut));
     ShowMemory();
-    cudaMalloc(&cuts, CUT_SET_SIZE * (n + 1) * sizeof(Cut));
+    cudaMalloc(&cuts, sizeof(Cut) * CUT_SET_SIZE * (n + 1) );
     ShowMemory();
 }
 
@@ -704,8 +704,8 @@ void GPUSolver::EnumerateAndPreEvaluate(int *level, const vector<int> &levelCoun
     ENUM_TIME += clock() - startTime;
     startTime = clock();
     BuildHashTable<<<BLOCK_NUMBER(n, LARGE_BLOCK_SIZE), LARGE_BLOCK_SIZE>>> (hashTable, n, fanin0, fanin1, isComplement0, isComplement1);           
-EvaluateNode<<<BLOCK_NUMBER(n, 768), 768>>> (n, bestSubgraph, fanin0, fanin1, isComplement0, isComplement1, nodeLevels, cuts, selectedCuts, nRef, lib, hashTable, fUseZeros == true);
-        gpuErrchk( cudaDeviceSynchronize() );
+    EvaluateNode<<<BLOCK_NUMBER(n, LARGE_BLOCK_SIZE), LARGE_BLOCK_SIZE>>> (n, bestSubgraph, fanin0, fanin1, isComplement0, isComplement1, nodeLevels, cuts, selectedCuts, nRef, lib, hashTable, fUseZeros == true);
+    gpuErrchk( cudaDeviceSynchronize() );
     std::cerr << cudaGetLastError() << " in EvaluateNode " << std::endl;
 
     EVAL_TIME += clock() - startTime;
@@ -1246,6 +1246,12 @@ void CPUSolver::Reorder() {
     for(int i = 1; i <= n; i++)
         level[i] = i <= numInputs ? 0 : -1;
     auto startTime2 = clock();
+    
+    // skipping the deleted nodes might cause errors, so do not skip them
+    // the redundant nodes can be deleted by strash 
+    for(int i = numInputs + 1; i <= n; i++) 
+        isDeleted[i] = 0;
+
     for(int i = numInputs + 1; i <= n; i++) 
         if(!isDeleted[i]) TopoSort(i);
     printf(" *** Topo sort time: %.2lf sec\n", (clock() - startTime2) / (double) CLOCKS_PER_SEC);
