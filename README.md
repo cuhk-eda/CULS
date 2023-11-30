@@ -90,6 +90,8 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
 }
 ```
 
-## Authors
-* [Shiju Lin](https://shijulin.github.io/) and [Jinwei Liu](https://anticold.github.io/), for GPU rewriting.
-* [Tianji Liu](https://tefantasy.github.io/), for the other algorithms.
+## Contributors
+* [Shiju Lin](https://shijulin.github.io/): GPU rewriting.
+* [Jinwei Liu](https://anticold.github.io/): GPU rewriting.
+* [Tianji Liu](https://tefantasy.github.io/): GPU refactoring, balancing.
+* Yang Sun
