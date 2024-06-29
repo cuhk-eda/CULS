@@ -8,6 +8,25 @@
 
 using strUtil::descWithDefault;
 
+int parseCmd(CLI::App & parser, const std::vector<std::string> & vLiterals){
+    std::string cmd = "";
+    for (int i = 0; i < vLiterals.size(); i++) {
+        cmd += vLiterals[i];
+        if (i != vLiterals.size() - 1)
+            cmd += " ";
+    }
+
+    try {
+        parser.parse(cmd, true);
+    } catch (const CLI::CallForHelp &e) {
+        std::cout << parser.help();
+        return 0;
+    } catch (const CLI::ParseError &e) {
+        return 1;
+    }
+    return 2;
+}
+
 // *************** command handler implementations ***************
 
 int readHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
@@ -149,6 +168,30 @@ int resyn2Handler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     return 0;
 }
 
+int resubHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
+    int cutSize = 8,  addNodes = 1, verbose=1;
+    bool fUseZeros = false, fUseConstr = true, fUpdateLevel = false;
+
+    CLI::App parser("Perform recorded library based optimization");
+    parser.add_flag("-z", fUseZeros, descWithDefault("fUseZeros", fUseZeros));
+    parser.add_flag("-c", fUseConstr, descWithDefault("fUseConstr", fUseConstr));
+    parser.add_flag("-l", fUpdateLevel, descWithDefault("fUpdateLevel", fUpdateLevel));
+    parser.add_option("-k", cutSize, descWithDefault("cut size (<=15)", cutSize));
+    parser.add_option("-n", addNodes, descWithDefault("max number of nodes to add (0 <= num <=3 )", addNodes));
+    parser.add_option("-v", verbose, descWithDefault("verbose level", verbose));
+    aigman.verbose = verbose;
+
+    int ret;
+    if((ret = parseCmd(parser, vLiterals)) < 2 )
+        return ret;
+
+    assert(cutSize>0);  assert(cutSize<=15);
+    assert(addNodes>=0);    assert(addNodes<=3);
+
+    aigman.resub(fUseZeros, fUseConstr, fUpdateLevel, cutSize, addNodes);
+    return 0;
+}
+
 
 // add an register entry here when add a new command
 void CmdMan::registerAllCommands() {
@@ -166,6 +209,8 @@ void CmdMan::registerAllCommands() {
     registerCommand("rewrite", rewriteHandler);
     registerCommand("rf", refactorHandler);
     registerCommand("refactor", refactorHandler);
+    registerCommand("rs", resubHandler);
+    registerCommand("resub", resubHandler);
     registerCommand("st", strashHandler);
     registerCommand("strash", strashHandler);
     registerCommand("resyn2", resyn2Handler);

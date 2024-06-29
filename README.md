@@ -57,6 +57,7 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
     * `b`: AIG balancing
     * `rw`: AIG rewriting
     * `rf`: AIG refactoring
+    * `rs`: AIG resubstitution
     * `st`: strashing and dangling-node removal
     * `resyn2`: perform the resyn2 optimization script
     * `ps`: print AIG statistics
@@ -90,8 +91,17 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
 }
 ```
 
+```bibtex
+@inproceedings{sun2024massively,
+  title={Massively Parallel AIG Resubstitution},
+  author={Sun, Yang and Liu, Tianji and Wong, Martin D. F. and Young, Evangeline F. Y.},
+  booktitle={Proceedings of the 61th ACM/IEEE Design Automation Conference},
+  year={2024}
+}
+```
+
 ## Contributors
 * [Shiju Lin](https://shijulin.github.io/): GPU rewriting.
 * [Jinwei Liu](https://anticold.github.io/): GPU rewriting.
 * [Tianji Liu](https://tefantasy.github.io/): GPU refactoring, balancing.
-* Yang Sun
+* Yang Sun: GPU resubstitution

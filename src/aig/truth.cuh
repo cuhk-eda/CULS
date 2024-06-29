@@ -5,8 +5,23 @@
 namespace Aig {
 
 __global__ void getElemTruthTable(unsigned * vTruthElem, int nVars);
+__global__ void getElemTruthTable(uint64 * vTruthElem, int nVars);
+__host__ void getElemTruthTableCPU(unsigned * vTruthElem, int nVars);
+__host__ void getCutTruthTableSingleCPU(const int * pFanin0, const int * pFanin1, 
+                                        unsigned * pTruth, const unsigned * vTruthElem, 
+                                        const int * pCut, int nVars, int rootId, 
+                                        int nMaxCutSize, int nPIs);
 
-__device__ __forceinline__
+__host__ __device__ __forceinline__
+int compareTruth(unsigned * truth1, unsigned* truth2, int nVars){
+    int nWords = dUtils::TruthWordNum(nVars);
+    for(int w=0; w<nWords; w++){
+        if(truth1[w] ^ truth2[w])    return 1;
+    }
+    return 0;
+}
+
+__host__ __device__ __forceinline__
 void cutTruthIter(int nodeId, const int * pFanin0, const int * pFanin1, 
                   unsigned * vTruthMem, int * visited, int * pVisitedSize, int nWords) {
     int fanin0Id, fanin1Id, fanin0TruthIdx, fanin1TruthIdx;
@@ -25,6 +40,9 @@ void cutTruthIter(int nodeId, const int * pFanin0, const int * pFanin1,
             fanin1TruthIdx = j;
             break;
         }
+    if(!(fanin0TruthIdx != -1 && fanin1TruthIdx != -1)){
+        printf("error: nodeId %d, fanin0: %d %d, fanin1 %d %d\n", nodeId, fanin0Id, fanin0TruthIdx, fanin1Id, fanin1TruthIdx);
+    }
     assert(fanin0TruthIdx != -1 && fanin1TruthIdx != -1);
 
     lit0 = pFanin0[nodeId], lit1 = pFanin1[nodeId];
@@ -48,6 +66,23 @@ void cutTruthIter(int nodeId, const int * pFanin0, const int * pFanin1,
     visited[(*pVisitedSize)++] = nodeId;
 }
 
+__host__ __device__ __forceinline__
+void printTruthTable(unsigned* vTruth, int nVars){
+    // in momery:  76543210 21110198
+    // display: 01234567 89101112
+    int nWords = dUtils::TruthWordNum(nVars);
+    printf("nVars: %d, nwords: %d | ", nVars, nWords);
+    const unsigned MASK = (unsigned)1;
+    for(int w=0; w<nWords; w++){
+        unsigned value = *(vTruth+w);
+        for(int i=0; i<8*sizeof(unsigned); i++){
+            printf("%c", (value & MASK ? '1' : '0'));
+            value >>= 1;
+            if((i+1) % 8 == 0)   printf(" ");
+        }
+    }
+    printf("\n");
+}
 
 /**
  * Device funtion of computing the truth table of one cut.
@@ -60,7 +95,8 @@ __device__ __forceinline__
 void getCutTruthTableSingle(const int * pFanin0, const int * pFanin1, 
                             unsigned * pTruth, const unsigned * vTruthElem, 
                             const int * pCut, int nVars, int rootId, int nMaxCutSize, int nPIs,
-                            unsigned * vTruthMem = NULL, const int * vNumSaved = NULL) {
+                            unsigned * vTruthMem = NULL, const int * vNumSaved = NULL,
+                            int* intNodesInd=NULL, int* intNodesSize=NULL) {
     int nodeId;
     int fVisited, fAllocated, nWords, nWordsElem, nIntNodes;
     int stack[STACK_SIZE], stackRes[STACK_SIZE], visited[STACK_SIZE];
@@ -132,6 +168,11 @@ void getCutTruthTableSingle(const int * pFanin0, const int * pFanin1,
         cutTruthIter(stackRes[i], pFanin0, pFanin1, vTruthMem, visited, &visitedSize, nWords);
     }
     assert(visited[visitedSize - 1] == rootId);
+    if(intNodesInd!=NULL){
+        memcpy(intNodesInd, visited, sizeof(int)*visitedSize);
+        assert(visitedSize == nIntNodes + nVars);
+        *intNodesSize = visitedSize;
+    }
 
     // copy the truth table of rootId to pTruth
     for (int i = 0; i < nWords; i++)
@@ -149,11 +190,13 @@ template <int CUT_TABLE_NUM_COLS, int STACK_SIZE>
 __global__ void getCutTruthTable(const int * pFanin0, const int * pFanin1, const int * vNumSaved,
                                  const int * vIndices, const int * vCutTable, const int * vCutSizes, 
                                  unsigned * vTruth, const int * vTruthRanges, const unsigned * vTruthElem,
-                                 int nIndices, int nPIs, int nMaxCutSize) {
+                                 int nIndices, int nPIs, int nMaxCutSize,
+                                 int* intNodesInd=NULL, unsigned* intNodesTruth=NULL, int* intNodesSize=NULL) {
     int nThreads = gridDim.x * blockDim.x;
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int rootId, nVars;
     int startIdx;
+    int nWords = dUtils::TruthWordNum(nMaxCutSize);
 
     for (; idx < nIndices; idx += nThreads) {
         rootId = vIndices[idx];
@@ -161,7 +204,10 @@ __global__ void getCutTruthTable(const int * pFanin0, const int * pFanin1, const
         startIdx = (idx == 0 ? 0 : vTruthRanges[idx - 1]);
         getCutTruthTableSingle<STACK_SIZE>(pFanin0, pFanin1, vTruth + startIdx, vTruthElem,
                                            vCutTable + rootId * CUT_TABLE_NUM_COLS, nVars,
-                                           rootId, nMaxCutSize, nPIs, NULL, vNumSaved);
+                                           rootId, nMaxCutSize, nPIs, 
+                                           (intNodesTruth == NULL ? NULL : intNodesTruth+idx*STACK_SIZE*nWords),
+                                           vNumSaved,
+                                           intNodesInd+idx*STACK_SIZE, intNodesSize+idx);
     }
 }
 
@@ -291,5 +337,3 @@ __global__ void getCutTruthTableConsecutive(const int * pFanin0, const int * pFa
 }
 
 } // namespace Aig
-
-

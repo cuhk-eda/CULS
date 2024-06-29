@@ -188,7 +188,7 @@ __global__ void markDanglingNodesIter(const int * pFanin0, const int * pFanin1, 
 
 std::tuple<int, int *, int *, int *, int *, int>
 Aig::strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * pNumFanouts,
-            int nObjs, int nPIs, int nPOs) {
+            int nObjs, int nPIs, int nPOs, int verbose) {
     int * vRemainNodes, * vOld2NewLit;
     int * vReadyNodes, * vMarks;
     uint64 * vKeysBuffer;
@@ -200,7 +200,7 @@ Aig::strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * p
     int nNodes = nObjs - nPIs - 1;
     int nRemain, nReady;
 
-    printf("GPU strash: start with nNodes = %d\n", nNodes);
+    if(verbose>=2)  printf("GPU strash: start with nNodes = %d\n", nNodes);
     auto startTime = clock();
 
     HashTable<uint64, uint32> hashTable(nObjs * 2);
@@ -226,7 +226,7 @@ Aig::strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * p
         );
         nDanglingNew = thrust::reduce(thrust::device, vMarks, vMarks + nNodes);
     } while (nDanglingNew != nDangling);
-    printf("  detected %d dangling nodes\n", nDangling);
+    if(verbose>=2)  printf("  detected %d dangling nodes\n", nDangling);
 
     // generate remaining node list
     thrust::sequence(thrust::device, vRemainNodes, vRemainNodes + nNodes, nPIs + 1);
@@ -306,7 +306,7 @@ Aig::strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * p
     cudaFree(vKeysBuffer);
     cudaFree(vValuesBuffer);
 
-    printf("GPU strash: finish with nNodes = %d, time = %.2lf sec\n", nNodesNew,
+    if(verbose>=2)  printf("GPU strash: finish with nNodes = %d, time = %.2lf sec\n", nNodesNew,
            (clock() - startTime) / (double) CLOCKS_PER_SEC);
 
     return {nObjsNew, vFanin0New, vFanin1New, vOutsNew, vNumFanoutsNew, levelCount};
@@ -315,6 +315,8 @@ Aig::strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * p
 
 void AIGMan::strash(bool fCPU, bool fRecordTime) {
 
+if(verbose>=1)  printf("\n*****Perform Strash*****\n");
+
 clock_t startFullTime = clock();
     if (fCPU) {
         // CPU strash
@@ -322,18 +324,19 @@ clock_t startFullTime = clock();
             toHost();
             clearDevice();
         }
-
 clock_t startAlgTime = clock();
 
         int * pFanin0New, * pFanin1New, * pOutsNew, * pNumFanoutsNew;
         int * vDanglingMarks;
         pFanin0New = (int *) malloc(nObjs * sizeof(int));
+        memset(pFanin0New, -1, nObjs * sizeof(int));
         pFanin1New = (int *) malloc(nObjs * sizeof(int));
+        memset(pFanin1New, -1, nObjs * sizeof(int));
         pOutsNew = (int *) malloc(nPOs * sizeof(int));
         pNumFanoutsNew = (int *) calloc(nObjs, sizeof(int));
         vDanglingMarks = (int *) calloc(nObjs, sizeof(int));
 
-        printf("CPU strash: start with nNodes = %d\n", nNodes);
+        if(verbose>=2)  printf("CPU strash: start with nNodes = %d\n", nNodes);
 
         int lit0, lit1, id0, id1, idCounter, temp, danglingCounter;
         uint64 key;
@@ -420,7 +423,7 @@ clock_t startAlgTime = clock();
                 pFanin1New[idCounter] = lit1;
                 ++pNumFanoutsNew[AigNodeID(lit0)];
                 ++pNumFanoutsNew[AigNodeID(lit1)];
-                
+
                 assert(vDelays[AigNodeID(lit0)] != -1 && vDelays[AigNodeID(lit1)] != -1);
                 vDelays[idCounter] = 1 + std::max(vDelays[AigNodeID(lit0)], vDelays[AigNodeID(lit1)]);
                 maxDelay = std::max(maxDelay, vDelays[idCounter]);
@@ -457,7 +460,7 @@ if (fRecordTime) {
 
         if (danglingCounter > 0)
             printf("  removed %d dangling nodes\n", danglingCounter);
-        printf("CPU strash: finish with nNodes = %d\n", nNodes);
+        if(verbose>=2)  printf("CPU strash: finish with nNodes = %d\n", nNodes);
 
         assert(!deviceAllocated); // on host
     } else {
@@ -467,7 +470,7 @@ if (fRecordTime) {
 
 clock_t startAlgTime = clock();
         auto [nObjsNew, vFanin0New, vFanin1New, vOutsNew, vNumFanoutsNew, levelCount] = Aig::strash(
-            d_pFanin0, d_pFanin1, d_pOuts, d_pNumFanouts, nObjs, nPIs, nPOs
+            d_pFanin0, d_pFanin1, d_pOuts, d_pNumFanouts, nObjs, nPIs, nPOs, verbose
         );
 if (fRecordTime) {
     prevAlgTime = clock() - startAlgTime;

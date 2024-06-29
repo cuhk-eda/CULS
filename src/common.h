@@ -1,6 +1,10 @@
 #pragma once
 
 #include <cassert>
+#include <iostream>
+#include <queue>
+#include <set>
+#include <vector>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/functional.h>
 
@@ -43,6 +47,18 @@ __host__ __device__ __forceinline__ int AigNodeIDDebug(int lit, int nPIs, int nP
 __host__ __device__ __forceinline__ int TruthWordNum(int nVars) {return nVars <= 5 ? 1 : (1 << (nVars - 5));}
 __host__ __device__ __forceinline__ int Truth6WordNum(int nVars) {return nVars <= 6 ? 1 : (1 << (nVars - 6));}
 
+__host__ __device__ __forceinline__
+bool hasVisited(const int* addr, int target, int size){
+    for(int i=0; i<size; i++)
+        if(addr[i]==target) return true;
+    return false;
+}
+
+__host__ __device__ __forceinline__
+int invertConstTrueFalse(int lit) {
+    // swap 0 and 1
+    return lit < 2 ? 1 - lit : lit;
+}
 // unary thrust functor
 template <typename ValueT, typename MaskT>
 struct getValueFilteredByMask {
@@ -116,6 +132,30 @@ struct equalsVal {
     }
 };
 
+template <typename T>
+struct equalsValNC {
+    const T val;
+    equalsValNC() = delete;
+    equalsValNC(const T val): val(val) {}
+    __host__ __device__
+    bool operator()(const T &elem) {
+        return elem == val;
+    }
+};
+
+template <typename T>
+struct maskEqualsVal {
+    const T val;
+    const T* mask;
+    maskEqualsVal() = delete;
+    maskEqualsVal(const T val, const T* mask):
+        val(val), mask(mask) {}
+    __host__ __device__
+    bool operator()(const T &elem) {
+        return mask[elem] == val;
+    }
+};
+
 template <typename T, T val>
 struct notEqualsVal {
     __host__ __device__
@@ -124,11 +164,58 @@ struct notEqualsVal {
     }
 };
 
+// for non-const value
+template <typename T>
+struct notEqualsValNC {
+    const T val;
+    notEqualsValNC() = delete;
+    notEqualsValNC(const T val):
+        val(val) {}
+    __host__ __device__
+    bool operator()(const T &elem) {
+        return elem != val;
+    }
+};
+
+template <typename T>
+struct maskNotEqualsVal {
+    const T val;
+    const T* mask;
+    maskNotEqualsVal() = delete;
+    maskNotEqualsVal(const T val, const T* mask):
+        val(val), mask(mask) {}
+    __host__ __device__
+    bool operator()(const T &elem) {
+        return mask[elem] != val;
+    }
+};
+
+template <typename T, T val>
+struct dividesVal {
+    __host__ __device__
+    T operator()(const T &elem) {
+        return elem / val;
+    }
+};
+
 template <typename T, T val>
 struct greaterThanVal {
     __host__ __device__
     bool operator()(const T &elem) {
         return elem > val;
+    }
+};
+
+template <typename T>
+struct maskGreaterThanVal {
+    const T val;
+    const T* mask;
+    maskGreaterThanVal() = delete;
+    maskGreaterThanVal(const T val, const T* mask):
+        val(val), mask(mask) {}
+    __host__ __device__
+    bool operator()(const T &elem) {
+        return mask[elem] > val;
     }
 };
 
@@ -152,6 +239,13 @@ struct sameNodeID {
     __host__ __device__
     bool operator()(const int &lhs, const int &rhs) const {
         return (lhs >> 1) == (rhs >> 1);
+    }
+};
+
+struct equals {
+    __host__ __device__
+    bool operator()(const int &lhs, const int &rhs) const {
+        return lhs == rhs ;
     }
 };
 
@@ -222,4 +316,65 @@ inline void gpuAssertStack(cudaError_t code, const char *file, int line, bool ab
       fprintf(stderr, "This is most likely due to insufficient CUDA call stack size. Try to increase cudaLimitStackSize.\n");
       if (abort) exit(code);
    }
+}
+
+#define CHECK_CUDA(val) check_cuda((val), #val, __FILE__, __LINE__)
+template <typename T>
+inline void check_cuda(T err, const char* const func, const char* const file, const int line){
+    if (err != cudaSuccess){
+        std::cerr << "CUDA Runtime Error at: " << file << ":" << line
+                  << std::endl;
+        std::cerr << cudaGetErrorString(err) << " " << func << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+inline void printCudaMem(){
+    size_t f,t;
+    cudaMemGetInfo(&f, &t);
+    printf("CUDA memory    free %.2f MB, total %.2f MB\n", (double)f/1024/1024, (double)t/1024/1024);
+}
+
+// attention that rootId is not a PO
+inline void printTFI(int rootId, int nPIs, int* pFanin0, int* pFanin1){
+    std::queue<int> vis;
+    std::set<int> visited, inputSupport;
+    bool printTFI = true;
+    if(printTFI)    printf("--------------------\nthe TFI of node %d:\n", rootId);
+    vis.push(rootId);
+    while(!vis.empty()){
+        int node = vis.front();
+        vis.pop();
+        if(node<=nPIs){
+            inputSupport.insert(node);
+            continue;
+        }
+        if(printTFI)
+            printf("%d: %s%d %s%d\n", node, (pFanin0[node]&1)?"!":" ", pFanin0[node]>>1, (pFanin1[node]&1)?"!":" ", pFanin1[node]>>1);
+        int left = pFanin0[node]>>1, right = pFanin1[node]>>1;
+        if(visited.find(left)==visited.end()){
+            vis.push(left); visited.insert(left);
+        }
+        if(visited.find(right)==visited.end()){
+            vis.push(right); visited.insert(right);
+        }
+    }
+    printf("the input support of node %d:", rootId);
+    for(auto i: inputSupport)
+        printf(" %d", i);
+    printf("\n--------------------\n");
+
+}
+
+inline void printCheckPoint(int phase, clock_t& preTime, std::string cap = ""){
+    clock_t curTime = clock();
+    if(cap.empty())
+        printf("**************  phase %d:  **************\n", phase);
+    else
+        printf("************  phase %d: %s  ************\n", phase, cap.c_str());
+
+    printf("  time: %.3f sec\n", (curTime - preTime) / (double) CLOCKS_PER_SEC);
+    printf("  ");
+    printCudaMem();
+    preTime = curTime;
 }

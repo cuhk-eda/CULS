@@ -10,3 +10,4 @@ test_cuda*
 .cache/
 logic_my_suite/
 *.py
+results/

@@ -11,7 +11,7 @@ __global__ void buildHashTable(const int * pFanin0, const int * pFanin1,
 
 std::tuple<int, int *, int *, int *, int *, int>
 strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * pNumFanouts,
-       int nObjs, int nPIs, int nPOs);
+       int nObjs, int nPIs, int nPOs, int verbose=1);
 
 /**
  * Check and retrieve AND node id from the hashtable, considering trivial cases.

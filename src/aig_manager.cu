@@ -9,7 +9,9 @@
 #include "aig_manager.h"
 #include "common.h"
 
+#include "aig/strash.cuh"
 #include "algorithms/balance.h"
+#include "algorithms/resub.h"
 
 int getFileSize(const char * path);
 unsigned aigDecodeBinary(char **ppPos);
@@ -598,6 +600,22 @@ void AIGMan::printStats() {
     }
 }
 
+/* -------------- AIG management -------------- */
+
+void AIGMan::updateLevel(int * pLevel, int * pFanin0, int * pFanin1, int nObjs, int nPIs) {
+    size_t fanin0Idx, fanin1Idx;
+    
+    for (int i = 0; i <= nPIs; i++)
+        pLevel[i] = 0;
+    for (int i = nPIs + 1; i < nObjs; i++) {
+        fanin0Idx = (size_t)(pFanin0[i] >> 1);
+        fanin1Idx = (size_t)(pFanin1[i] >> 1);
+        assert(fanin0Idx < i && fanin1Idx < i);
+
+        pLevel[i] = 1 + max(pLevel[fanin0Idx], pLevel[fanin1Idx]);
+    }
+}
+
 /* -------------- Algorithm Main Entrance -------------- */
 
 void AIGMan::rewrite(bool fUseZeros, bool fGPUDeduplicate) {
@@ -696,6 +714,105 @@ totalFullTime += prevFullTime;
 printf("balance: alg time %.2lf, full time %.2lf\n", 
        (double)prevAlgTime / CLOCKS_PER_SEC, (double)prevFullTime / CLOCKS_PER_SEC);
 }
+
+
+void AIGMan::resub(bool fUseZeros, bool fUseConstr, bool fUpdateLevel, int cutSize, int addNodes){
+    if(verbose>=1) {
+        printf("\n*****Perform %d-Resub*****\n", addNodes);
+        if (fUseZeros)
+            printf("resub: use zeros activated!\n");
+        if (fUseConstr)
+            printf("resub: use constraints activated!\n");
+        if (fUpdateLevel)
+            printf("resub: use updateLevel activated!\n");
+        if(cutSize!=8)
+            printf("resub: cut size is %d\n", cutSize);
+        if (!aigCreated) {
+            printf("rewrite: AIG is null! \n");
+            return;
+        }
+    }
+
+    clock_t startFullTime = clock();
+    
+    // for the main aig manager, copy data to from gpu to host and free gpu data
+    if (deviceAllocated) {
+        toHost();
+        clearDevice();
+    }
+    // allocate and compute level info
+    pLevel = (int *) malloc(sizeof(int) * nObjs);
+    updateLevel(pLevel, pFanin0, pFanin1, nObjs, nPIs);
+    // copy host data to device
+    cudaMalloc(&d_pLevel, sizeof(int) * nObjs);
+    cudaMemcpy(d_pLevel, pLevel, sizeof(int) * nObjs, cudaMemcpyHostToDevice);
+    toDevice();
+    
+
+    size_t cuStackSize = 0;
+    cudaDeviceGetLimit(&cuStackSize, cudaLimitStackSize);
+    // printf("GPUSolver: setting cudaLimitStackSize = %lu KB\n", limit * 12 / 1024);
+
+    clock_t startAlgTime = clock();
+    // here is the main code for k-resub
+    int nObjsNew;
+    int * vFanin0New, * vFanin1New, * vOutsNew, *vNumFanoutsNew;
+    std::tie(nObjsNew, vFanin0New, vFanin1New, vOutsNew, vNumFanoutsNew) = resubPerform(
+        fUseZeros, fUseConstr, fUpdateLevel, cutSize, addNodes, nObjs, nPIs, nPOs, nNodes, 
+        d_pFanin0, d_pFanin1, d_pOuts, d_pNumFanouts, d_pLevel, verbose,
+        pFanin0, pFanin1, pOuts);
+
+    prevAlgTime = clock() - startAlgTime;
+    totalAlgTime += prevAlgTime;
+
+    // clearDevice();
+    cudaFree(d_pLevel);
+    cudaDeviceSynchronize();
+    cudaDeviceSetLimit(cudaLimitStackSize, cuStackSize);
+
+    // update host data
+    nObjs = nObjsNew;
+    nNodes = nObjsNew - nPIs - 1;
+
+    // strash
+    int *d_pFanin0New, *d_pFanin1New, *d_pOutsNew, *d_pNumFanoutsNew;
+    int levelCount;
+    deviceAllocated = 1;
+
+    std::tie(nObjsNew, d_pFanin0New, d_pFanin1New, d_pOutsNew, d_pNumFanoutsNew, levelCount) = Aig::strash(
+        vFanin0New, vFanin1New, vOutsNew, vNumFanoutsNew, nObjs, nPIs, nPOs, verbose
+    );
+
+    nObjs = nObjsNew;
+    nNodes = nObjsNew - nPIs - 1;
+    nLevels = levelCount;
+
+    cudaMemcpy(d_pnObjs, &nObjs, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_pnNodes, &nNodes, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_pnPIs, &nPIs, sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_pnPOs, &nPOs, sizeof(int), cudaMemcpyHostToDevice);
+    cudaFree(d_pFanin0);    cudaFree(d_pFanin1);
+    cudaFree(d_pOuts);
+    cudaFree(d_pNumFanouts);
+    d_pFanin0 = d_pFanin0New;
+    d_pFanin1 = d_pFanin1New;
+    d_pOuts = d_pOutsNew;
+    d_pNumFanouts = d_pNumFanoutsNew;
+
+    assert(deviceAllocated); // on device
+
+    cudaFree(vFanin0New);   cudaFree(vFanin1New);
+    cudaFree(vOutsNew);
+    cudaFree(vNumFanoutsNew);
+
+    prevCmdRewrite = 0;
+    prevFullTime = clock() - startFullTime;
+    totalFullTime += prevFullTime;
+
+}
+
+
+
 
 /* -------------- IO Utils -------------- */
 

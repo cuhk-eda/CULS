@@ -23,6 +23,7 @@ public:
     void balance(int sortDecId = 1);
     void rewrite(bool fUseZeros = false, bool fGPUDeduplicate = false);
     void refactor(bool fAlgMFFC = false, bool fUseZeros = false, int cutSize = 12);
+    void resub(bool fUseZeros = false, bool fUseConstr = true, bool fUpdateLevel = false, int cutSize = 8, int addNodes = 1);
 
     // memory helpers
     void allocHost();
@@ -38,6 +39,7 @@ public:
     void setPrevCmdRewrite(int prevCmdRewrite);
     AIGMan * getAuxAig(const std::string & name);
     void addAuxAig(AIGMan * pManAux);
+    void updateLevel(int * pLevel, int * pFanin0, int * pFanin1, int nObjs, int nPIs);
 
     // debug uses
     void show();
@@ -72,6 +74,7 @@ public:
     // auxiliary aig managers used in certain algorithms
     // note, auxiliary aigs should be allocated by algorithms but deallocated by this main manager
     std::vector<AIGMan *> vManAux;
+    int verbose;
 
 private:
     int readFromMemory(char * pContents, int nFileSize);
