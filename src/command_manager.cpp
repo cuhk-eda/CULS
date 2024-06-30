@@ -174,7 +174,6 @@ int resubHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
 
     CLI::App parser("Perform recorded library based optimization");
     parser.add_flag("-z", fUseZeros, descWithDefault("fUseZeros", fUseZeros));
-    parser.add_flag("-c", fUseConstr, descWithDefault("fUseConstr", fUseConstr));
     parser.add_flag("-l", fUpdateLevel, descWithDefault("fUpdateLevel", fUpdateLevel));
     parser.add_option("-k", cutSize, descWithDefault("cut size (<=15)", cutSize));
     parser.add_option("-n", addNodes, descWithDefault("max number of nodes to add (0 <= num <=3 )", addNodes));
@@ -192,6 +191,45 @@ int resubHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     return 0;
 }
 
+int resyn2rsHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
+    // command:
+    // b; st; rs -k 6; rw -d; rs -k 6 -n 2; st; rf -m -K 10; st;
+    // rs -k 8; b; st; rs -k 8 -n 2; rw -d;
+    // rs -k 10; rw -z -d; rs -k 10 -n 2; b; st;
+    // rs -k 10; st; rf -m -z -K 10; st; rs -k 10 -n 2; rw -d -z; b; st;
+
+    aigman.balance(1);
+    aigman.strash(false, true);
+    aigman.resub(false, true, false, 6, 1);
+    aigman.rewrite(false, true);
+    aigman.resub(false, true, false, 6, 2);
+    aigman.strash(false, true);
+    aigman.refactor(true, false, 10);
+    aigman.strash(false, true);
+
+    aigman.resub(false, true, false, 8, 1);
+    aigman.balance(1);
+    aigman.strash(false, true);
+    aigman.resub(false, true, false, 8, 2);
+    aigman.rewrite(false, true);
+
+    aigman.resub(false, true, false, 10, 1);
+    aigman.rewrite(true, true);
+    aigman.resub(false, true, false, 10, 2);
+    aigman.balance(1);
+    aigman.strash(false, true);
+
+    aigman.resub(false, true, false, 10, 1);
+    aigman.strash(false, true);
+    aigman.refactor(true, true, 10);
+    aigman.strash(false, true);
+    aigman.resub(false, true, false, 10, 2);
+    aigman.rewrite(true, true);
+    aigman.balance(1);
+    aigman.strash(false, true);
+
+    return 0;
+}
 
 // add an register entry here when add a new command
 void CmdMan::registerAllCommands() {
@@ -213,8 +251,9 @@ void CmdMan::registerAllCommands() {
     registerCommand("resub", resubHandler);
     registerCommand("st", strashHandler);
     registerCommand("strash", strashHandler);
-    registerCommand("resyn2", resyn2Handler);
 
+    registerCommand("resyn2", resyn2Handler);
+    registerCommand("resyn2rs", resyn2rsHandler);
 }
 
 void CmdMan::registerCommand(const std::string & cmd, const CommandHandler & cmdHandlerFunc) {

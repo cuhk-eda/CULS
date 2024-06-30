@@ -60,48 +60,31 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
     * `rs`: AIG resubstitution
     * `st`: strashing and dangling-node removal
     * `resyn2`: perform the resyn2 optimization script
+    * `resyn2rs`: perform the resyn2rs optimization script
     * `ps`: print AIG statistics
     * `time`: print time statistics
 
 * ABC patch mode
 
-    The above commands will be prefixed by `g`, e.g., `grf`
+    Standalone mode commands will be prefixed by `g`, e.g., `grf`
     for AIG refactoring. 
 
     Additionally, there are two commands `gget` and `gput` for converting the
     AIG data structure from ABC to GPU, and from GPU to ABC, respectively,
     similar to the ABC9 package. 
 
-## References
-```bibtex
-@inproceedings{lin2022novelrewrite,
-  title={NovelRewrite: node-level parallel AIG rewriting},
-  author={Lin, Shiju and Liu, Jinwei and Liu, Tianji and Wong, Martin D. F. and Young, Evangeline F. Y.},
-  booktitle={Proceedings of the 59th ACM/IEEE Design Automation Conference},
-  year={2022}
-}
-```
-
-```bibtex
-@inproceedings{liu2023rethinking,
-  title={Rethinking AIG Resynthesis in Parallel},
-  author={Liu, Tianji and Young, Evangeline F. Y.},
-  booktitle={60th ACM/IEEE Design Automation Conference},
-  year={2023}
-}
-```
-
-```bibtex
-@inproceedings{sun2024massively,
-  title={Massively Parallel AIG Resubstitution},
-  author={Sun, Yang and Liu, Tianji and Wong, Martin D. F. and Young, Evangeline F. Y.},
-  booktitle={Proceedings of the 61th ACM/IEEE Design Automation Conference},
-  year={2024}
-}
-```
+## Publications
+* Shiju Lin, Jinwei Liu, Tianji Liu, Martin D.F. Wong, Evangeline F.Y. Young, 
+"NovelRewrite: Node-Level Parallel AIG Rewriting", 
+59th ACM/IEEE Design Automation Conference (DAC), 2022.
+* Tianji Liu, Evangeline F.Y. Young, "Rethinking AIG Resynthesis in Parallel", 
+60th ACM/IEEE Design Automation Conference (DAC), 2023.
+* Yang Sun, Tianji Liu, Martin D.F. Wong, Evangeline F.Y. Young, 
+"Massively Parallel AIG Resubstitution", 
+61st ACM/IEEE Design Automation Conference (DAC), 2024.
 
 ## Contributors
 * [Shiju Lin](https://shijulin.github.io/): GPU rewriting.
 * [Jinwei Liu](https://anticold.github.io/): GPU rewriting.
 * [Tianji Liu](https://tefantasy.github.io/): GPU refactoring, balancing.
-* Yang Sun: GPU resubstitution
+* Yang Sun: GPU resubstitution.
