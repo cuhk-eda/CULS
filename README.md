@@ -82,9 +82,24 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
 * Yang Sun, Tianji Liu, Martin D.F. Wong, Evangeline F.Y. Young, 
 "Massively Parallel AIG Resubstitution", 
 61st ACM/IEEE Design Automation Conference (DAC), 2024.
+* Tianji Liu, Lei Chen, Xing Li, Mingxuan Yuan, Evangeline F.Y. Young, 
+"FineMap: A Fine-grained GPU-parallel LUT Mapping Engine", 
+29th Asia and South Pacific Design Automation Conference (ASP-DAC), 2024.
+* Tianji Liu, Yang Sun, Lei Chen, Xing Li, Mingxuan Yuan, Evangeline F.Y. Young,
+"A Unified Parallel Framework for LUT Mapping and Logic Optimization",
+IEEE Transactions on Computer-Aided Design of Integrated Circuits 
+and Systems (TCAD), 2024.
+
+## Executable of LUT Mapping and Mapping-based Optimization
+The code of GPU LUT mapping and mapping-based AIG optimization is not
+open-sourced in CULS, but we provide a binary executable containing the 
+implementation of these two algorithms. To request it, 
+please send an email to [Tianji Liu](https://tefantasy.github.io/) 
+including your name, affiliation, and the intended use of the executable. 
 
 ## Contributors
 * [Shiju Lin](https://shijulin.github.io/): GPU rewriting.
 * [Jinwei Liu](https://anticold.github.io/): GPU rewriting.
-* [Tianji Liu](https://tefantasy.github.io/): GPU refactoring, balancing.
-* Yang Sun: GPU resubstitution.
+* [Tianji Liu](https://tefantasy.github.io/): GPU refactoring, balancing,
+LUT mapping, mapping-based AIG optimization.
+* Yang Sun: GPU resubstitution, mapping-based AIG optimization.
