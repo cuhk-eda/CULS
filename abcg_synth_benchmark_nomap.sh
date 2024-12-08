@@ -1,0 +1,1 @@
+time ./build/abcg -f realistic_synth_benchmark_nomap_gpu/abc.script

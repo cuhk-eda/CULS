@@ -53,6 +53,7 @@ endfunction()
 set(GPULS_CUDA_FLAGS -arch=compute_60 -code=compute_60,sm_60,sm_86)
 set(GPULS_CUDA_FLAGS ${GPULS_CUDA_FLAGS} -std=c++17 -O3 --extended-lambda)
 # set(GPULS_CUDA_FLAGS ${GPULS_CUDA_FLAGS} -rdc=true)
+set(GPULS_CUDA_DEBUG_FLAGS )
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -66,6 +67,10 @@ file(GLOB GPULS_GPU_SOURCES
     "src/algorithms/*.cu"
     "src/algorithms/map/*.cu"
     "src/algorithms/rec_opt/*.cu")
+
+# Define debug flags
+set(C_DEBUG_FLAGS "")
+set(CXX_DEBUG_FLAGS "")
 
 if(DEFINED PATCH_ABC)
     # as a patch of ABC
@@ -183,6 +188,11 @@ if(DEFINED PATCH_ABC)
     target_compile_options(abcg PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${GPULS_CUDA_FLAGS}>)
     add_definitions(-DPATCH_ABC)
 
+    # Add debug flags based on build type
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(abcg PRIVATE $<$<COMPILE_LANGUAGE:C>:${C_DEBUG_FLAGS}>)
+        target_compile_options(abcg PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CXX_DEBUG_FLAGS}>)
+    endif()
 else()
     # standalone executable
     message("Building in standalone mode ...")
@@ -195,4 +205,10 @@ else()
     target_include_directories(gpuls PRIVATE "include") # header only libraries
 
     target_compile_options(gpuls PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${GPULS_CUDA_FLAGS}>)
+
+    # Add debug flags based on build type
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(gpuls PRIVATE $<$<COMPILE_LANGUAGE:C>:${C_DEBUG_FLAGS}>)
+        target_compile_options(gpuls PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CXX_DEBUG_FLAGS}>)
+    endif()
 endif()
