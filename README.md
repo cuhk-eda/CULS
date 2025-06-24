@@ -89,17 +89,23 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
 "A Unified Parallel Framework for LUT Mapping and Logic Optimization",
 IEEE Transactions on Computer-Aided Design of Integrated Circuits 
 and Systems (TCAD), 2024.
+* Tianji Liu, Evangeline F.Y. Young, "Simulation-based Parallel Sweeping: 
+A New Perspective on Combinational Equivalence Checking", 
+62nd ACM/IEEE Design Automation Conference (DAC), 2025. 
 
-## Executable of LUT Mapping and Mapping-based Optimization
-The code of GPU LUT mapping and mapping-based AIG optimization is not
-open-sourced in CULS, but we provide a binary executable containing the 
-implementation of these two algorithms. To request it, 
-please send an email to [Tianji Liu](https://tefantasy.github.io/) 
-including your name, affiliation, and the intended use of the executable. 
+## Other Algorithms Developed on Top of CULS
+* GPU LUT mapping
+* GPU mapping-based AIG optimization
+* GPU simulation-based combinational equivalence checking
+
+These algorithms are not open-sourced in CULS due to various reasons, but we can provide
+binary executables containing their implementations. To request the executables, 
+please send an email to Tianji Liu including your name, affiliation, 
+and the intended use of the executable.
 
 ## Contributors
 * [Shiju Lin](https://shijulin.github.io/): GPU rewriting.
 * [Jinwei Liu](https://anticold.github.io/): GPU rewriting.
 * [Tianji Liu](https://tefantasy.github.io/): GPU refactoring, balancing,
-LUT mapping, mapping-based AIG optimization.
+LUT mapping, mapping-based AIG optimization, GPU simulation-based CEC.
 * Yang Sun: GPU resubstitution, mapping-based AIG optimization.
