@@ -7,6 +7,8 @@
 #include <vector>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/functional.h>
+#include <thrust/count.h>
+#include <thrust/remove.h>
 
 #define NUM_BLOCKS(n, block_size) (((n) + (block_size) - 1) / (block_size))
 #define THREAD_PER_BLOCK 128
