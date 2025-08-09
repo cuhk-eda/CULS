@@ -1,3 +1,4 @@
+#pragma once
 extern "C" {
 #include "base/main/main.h"
 #include "base/main/mainInt.h"

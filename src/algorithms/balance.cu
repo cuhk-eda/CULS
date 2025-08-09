@@ -8,6 +8,8 @@
 #include <thrust/binary_search.h>
 #include <thrust/random.h>
 #include <thrust/shuffle.h>
+#include <thrust/remove.h>
+#include <thrust/count.h>
 #include "common.h"
 #include "hash_table.h"
 #include "balance.h"

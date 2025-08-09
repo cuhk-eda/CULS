@@ -4,6 +4,7 @@
 #include <thrust/sequence.h>
 #include <thrust/copy.h>
 #include <thrust/reduce.h>
+#include <thrust/remove.h>
 #include "robin_hood.h"
 #include "aig_manager.h"
 #include "aig/strash.cuh"

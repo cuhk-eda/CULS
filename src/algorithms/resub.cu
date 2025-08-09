@@ -7,6 +7,7 @@
 #include <thrust/scan.h>
 #include <thrust/sequence.h>
 #include <thrust/copy.h>
+#include <thrust/count.h>
 #include <thrust/tuple.h>
 #include <thrust/iterator/zip_iterator.h>
 #include "common.h"
