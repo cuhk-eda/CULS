@@ -47,6 +47,7 @@ public:
 
     __host__ void insert_batch_no_update(const KeyT * keys, const ValueT * values, const int len);
     __host__ void insert_batch_no_update_masked(const KeyT * keys, const ValueT * values, const int * mask, const int len);
+    __host__ void insert_batch_update_min_masked(const KeyT * keys, const ValueT * values, const int * mask, const int len);
     __host__ void retrieve_batch(const KeyT * keys, ValueT * values, const int len);
     __host__ void retrieve_batch_masked(const KeyT * keys, ValueT * values, const int * mask, const int len);
     __host__ int retrieve_all(KeyT * keys, ValueT * values, const int buffer_len, const int sorted = 0);
@@ -244,6 +245,29 @@ __global__ void insert_batch_no_update_masked_kernel(KeyT * ht_keys, ValueT * ht
 }
 
 template <typename KeyT, typename ValueT>
+__global__ void insert_batch_update_min_masked_kernel(KeyT * ht_keys, ValueT * ht_values, 
+        const KeyT * keys, const ValueT * values, const int * mask,
+        const int len, const int capacity) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < len && mask[idx] == 1) {
+        KeyT key = keys[idx];
+        ValueT value = values[idx];
+        KeyT loc = hash(key);
+        loc = loc % capacity;
+
+        while (true) {
+            KeyT prev = atomicCAS(&ht_keys[loc], HASHTABLE_EMPTY_KEY<KeyT, ValueT>, key);
+            if (prev == HASHTABLE_EMPTY_KEY<KeyT, ValueT> || prev == key) {
+                // found a empty entry, or already have key inserted
+                atomicMin(&ht_values[loc], value);
+                return;
+            }
+            loc = (loc + 1) % capacity;
+        }
+    }
+}
+
+template <typename KeyT, typename ValueT>
 __global__ void retrieve_batch_kernel(KeyT * ht_keys, ValueT * ht_values, 
                                       const KeyT * keys, ValueT * values,
                                       const int len, const int capacity) {
@@ -333,6 +357,14 @@ __host__ void HashTable<KeyT, ValueT>::insert_batch_no_update_masked(const KeyT 
         this->keys, this->values, keys, values, mask, len, capacity
     );
     // cudaDeviceSynchronize();
+}
+
+template <typename KeyT, typename ValueT>
+__host__ void HashTable<KeyT, ValueT>::insert_batch_update_min_masked(const KeyT * keys, 
+        const ValueT * values, const int * mask, const int len) {
+    insert_batch_update_min_masked_kernel<KeyT, ValueT> 
+    <<<NUM_BLOCKS(len, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
+        this->keys, this->values, keys, values, mask, len, capacity);
 }
 
 template <typename KeyT, typename ValueT>
@@ -454,6 +486,29 @@ __device__ __forceinline__ uint32 insert_single_no_update(KeyT * ht_keys, ValueT
             return ht_values[loc];
         }
 
+        loc = (loc + 1) % capacity;
+    }
+}
+
+/**
+ * If there are multiple insertions with different values, the final value
+ * will be the minimum one. 
+ * Note that the correctness depends on the 0xff-initialized value array.
+*/
+template <typename KeyT, typename ValueT>
+__device__ inline void insert_single_update_min_value(
+        KeyT *ht_keys, ValueT *ht_values, const KeyT key, const ValueT value, 
+        const int capacity) {
+    KeyT loc = hash(key);
+    loc = loc % capacity;
+
+    while (true) {
+        KeyT prev = atomicCAS(&ht_keys[loc], HASHTABLE_EMPTY_KEY<KeyT, ValueT>, key);
+        if (prev == HASHTABLE_EMPTY_KEY<KeyT, ValueT> || prev == key) {
+            // found a empty entry, or already have key inserted
+            atomicMin(&ht_values[loc], value);
+            return;
+        }
         loc = (loc + 1) % capacity;
     }
 }

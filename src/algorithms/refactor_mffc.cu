@@ -36,8 +36,7 @@ struct bitwiseNot {
 
 // debug functions
 __global__ void printMffcCut(int * vCutTable, int * vCutSizes, int * vConeSizes,
-                             const int * pFanin0, const int * pFanin1, 
-                             int nNodes, int nPIs, int nPOs) {
+        int nNodes, int nPIs) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx != 0)
         return;
@@ -394,8 +393,8 @@ __global__ void insertSubgIter(int iter, const int * vResynIdSeq,
             assert(fanin0 < fanin1);
             key = formAndNodeKey(fanin0, fanin1);
             // assign new (tentative) id as idCounter + idx, which is unique
-            insert_single_no_update<uint64, uint32>(htDestKeys, htDestValues, key, 
-                                                    (uint32)(idCounter + idx), htDestCapacity);
+            insert_single_update_min_value<uint64, uint32>(htDestKeys, htDestValues, key, 
+                (uint32)(idCounter + idx), htDestCapacity);
         }
         // save the converted key into the corresponding location in vSubgTable
         key = subgUtil::formAndNodeKeyFlag(fanin0, fanin1, fComp);
@@ -778,7 +777,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     // filter out too small MFFCs by replacing cut size with -1
     thrust::replace_if(thrust::device, vCutSizes, vCutSizes + nObjs, vNumSaved, isSmallMFFC(), -1);
 
-    // printMffcCut<<<1, 1>>>(vCutTable, vCutSizes, vNumSaved, d_pFanin0, d_pFanin1, nNodes, nPIs, nPOs);
+    // printMffcCut<<<1, 1>>>(vCutTable, vCutSizes, vNumSaved, nNodes, nPIs);
     // cudaDeviceSynchronize();
 
     // collect the number of cones to be resyned
