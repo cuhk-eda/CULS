@@ -19,7 +19,7 @@ __global__ void resynCut(const int * vResynInd, const int * vCutTable, const int
                          const uint64 * htKeys, const uint32 * htValues, int htCapacity, const int * pLevels, 
                          uint64 * vSubgTable, int * vSubgLinks, int * vSubgLens, int * pSubgTableNext,
                          unsigned * vTruth, const int * vTruthRanges, const unsigned * vTruthElem, int nMaxCutSize, int nResyn);
-__global__ void factorFromTruth(const int * vCuts, const int * vCutRanges, 
+__global__ void factorFromTruth(int * pOverflow, const int * vCuts, const int * vCutRanges, 
                                 uint64 * vSubgTable, int * vSubgLinks, int * vSubgLens, int * pSubgTableNext,
                                 const unsigned * vTruth, const unsigned * vTruthNeg, const int * vTruthRanges, 
                                 const unsigned * vTruthElem, int nResyn);

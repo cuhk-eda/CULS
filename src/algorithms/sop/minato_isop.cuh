@@ -28,6 +28,7 @@ unsigned minatoIsop5Rec(unsigned uOn, unsigned uOnDc, int nVars,
         pcRes->nLits = 0;
         pcRes->nCubes = 1;
         pcRes->pCubes = vecsMem->fetch(1);
+        VecsMem_OverflowReturnValue(*vecsMem, 0);
         assert(pcRes->pCubes != NULL);
 
         pcRes->pCubes[0] = 0;
@@ -50,13 +51,17 @@ unsigned minatoIsop5Rec(unsigned uOn, unsigned uOnDc, int nVars,
 
     // solve for cofactors
     uRes0 = minatoIsop5Rec(uOn0 & ~uOnDc1, uOnDc0, Var, pcRes0, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, 0);
     uRes1 = minatoIsop5Rec(uOn1 & ~uOnDc0, uOnDc1, Var, pcRes1, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, 0);
     uRes2 = minatoIsop5Rec((uOn0 & ~uRes0) | (uOn1 & ~uRes1), uOnDc0 & uOnDc1, Var, pcRes2, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, 0);
     
     // create the resulting cover
     pcRes->nLits  = pcRes0->nLits  + pcRes1->nLits  + pcRes2->nLits + pcRes0->nCubes + pcRes1->nCubes;
     pcRes->nCubes = pcRes0->nCubes + pcRes1->nCubes + pcRes2->nCubes;
     pcRes->pCubes = vecsMem->fetch(pcRes->nCubes);
+    VecsMem_OverflowReturnValue(*vecsMem, 0);
     assert(pcRes->pCubes != NULL);
 
     k = 0;
@@ -90,6 +95,7 @@ unsigned * minatoIsopRec(const unsigned * puOn, const unsigned * puOnDc, int nVa
     // allocate room for the resulting truth table
     nWordsAll = dUtils::TruthWordNum(nVars);
     pTemp = vecsMem->fetch(nWordsAll);
+    VecsMem_OverflowReturnValue(*vecsMem, NULL);
     assert(pTemp != NULL);
 
     // check for constants
@@ -104,6 +110,7 @@ unsigned * minatoIsopRec(const unsigned * puOn, const unsigned * puOnDc, int nVa
         pcRes->nLits  = 0;
         pcRes->nCubes = 1;
         pcRes->pCubes = vecsMem->fetch(1);
+        VecsMem_OverflowReturnValue(*vecsMem, NULL);
         assert(pcRes->pCubes != NULL);
 
         pcRes->pCubes[0] = 0; // const-true cube contains no literal
@@ -120,6 +127,7 @@ unsigned * minatoIsopRec(const unsigned * puOn, const unsigned * puOnDc, int nVa
     // consider a simple case when one-word computation can be used
     if ( Var < 5 ) {
         unsigned uRes = minatoIsop5Rec(puOn[0], puOnDc[0], Var + 1, pcRes, vecsMem);
+        VecsMem_OverflowReturnValue(*vecsMem, NULL);
         for (i = 0; i < nWordsAll; i++)
             pTemp[i] = uRes;
         return pTemp;
@@ -135,19 +143,23 @@ unsigned * minatoIsopRec(const unsigned * puOn, const unsigned * puOnDc, int nVa
     // solve for cofactors
     truthUtil::truthSharp(pTemp0, puOn0, puOnDc1, Var); // f'0
     puRes0 = minatoIsopRec(pTemp0, puOnDc0, Var, pcRes0, vecsMem); // g0
+    VecsMem_OverflowReturnValue(*vecsMem, NULL);
     truthUtil::truthSharp(pTemp1, puOn1, puOnDc0, Var); // f'1
     puRes1 = minatoIsopRec(pTemp1, puOnDc1, Var, pcRes1, vecsMem); // g1
+    VecsMem_OverflowReturnValue(*vecsMem, NULL);
 
     truthUtil::truthSharp(pTemp0, puOn0, puRes0, Var); // f''0
     truthUtil::truthSharp(pTemp1, puOn1, puRes1, Var); // f''1
     truthUtil::truthOr(pTemp0, pTemp0, pTemp1, Var);   // f*
     truthUtil::truthAnd(pTemp1, puOnDc0, puOnDc1, Var);
     puRes2 = minatoIsopRec(pTemp0, pTemp1, Var, pcRes2, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, NULL);
 
     // create the resulting cover
     pcRes->nLits  = pcRes0->nLits  + pcRes1->nLits  + pcRes2->nLits + pcRes0->nCubes + pcRes1->nCubes;
     pcRes->nCubes = pcRes0->nCubes + pcRes1->nCubes + pcRes2->nCubes;
     pcRes->pCubes = vecsMem->fetch(pcRes->nCubes);
+    VecsMem_OverflowReturnValue(*vecsMem, NULL);
     assert(pcRes->pCubes != NULL);
 
     // since there are at most 16 vars, 
@@ -181,6 +193,7 @@ void minatoIsop(const unsigned * puTruth, int nVars,
     vecsMem->shrink(0); // clear the memory
 
     pResult = minatoIsopRec(puTruth, puTruth, nVars, pcRes, vecsMem);
+    VecsMem_OverflowReturn(*vecsMem);
     assert(truthUtil::truthEqual(puTruth, pResult, nVars));
 
     if (pcRes->nCubes == 0 || (pcRes->nCubes == 1 && pcRes->pCubes[0] == 0)) {
@@ -191,7 +204,8 @@ void minatoIsop(const unsigned * puTruth, int nVars,
 
     // move the cover representation to the beginning of the memory buffer
     pTemp = vecsMem->fetch(pcRes->nCubes);
-    assert(pTemp != NULL);
+    VecsMem_OverflowReturn(*vecsMem);
+    assert(pTemp != NULL && !vecsMem->overflow());
     for (int i = 0; i < pcRes->nCubes; i++)
         pTemp[i] = pcRes->pCubes[i];
     for (int i = 0; i < pcRes->nCubes; i++)

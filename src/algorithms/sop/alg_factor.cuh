@@ -23,6 +23,7 @@ void sopCreateInverse(Sop * cResult, unsigned * vInput, int nInputCubes,
     // start the cover
     cResult->nCubes = 0;
     cResult->pCubes = vecsMem->fetch(nInputCubes);
+    VecsMem_OverflowReturn(*vecsMem);
 
     for (int i = 0; i < nInputCubes; i++){
         uCube = vInput[i];
@@ -129,6 +130,7 @@ void sopDup(Sop * cResult, Sop * cSop, VecsMem<unsigned, ISOP_FACTOR_MEM_CAP> * 
     // start the cover
     cResult->nCubes = 0;
     cResult->pCubes = vecsMem->fetch(cSop->nCubes);
+    VecsMem_OverflowReturn(*vecsMem);
     // add the cubes
     // Kit_SopForEachCube( cSop, uCube, i )
     for (i = 0; i < cSop->nCubes; i++)
@@ -159,6 +161,7 @@ int sopDivisor(Sop * cResult, Sop * cSop, int nLits, VecsMem<unsigned, ISOP_FACT
         return 0;
     // duplicate the cover
     sopDup(cResult, cSop, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, 2);
     // perform the kerneling
     sopDivisorZeroKernelRec(cResult, nLits);
     assert(cResult->nCubes > 0);
@@ -235,6 +238,7 @@ void sopDivideByCube(Sop * cSop, Sop * cDiv, Sop * vQuo, Sop * vRem,
     vQuo->pCubes = vecsMem->fetch(cSop->nCubes);
     vRem->nCubes = 0;
     vRem->pCubes = vecsMem->fetch(cSop->nCubes);
+    VecsMem_OverflowReturn(*vecsMem);
     // Kit_SopForEachCube( cSop, uCube, i )
     for (i = 0; i < cSop->nCubes; i++) {
         uCube = cSop->pCubes[i];
@@ -263,6 +267,7 @@ void sopDivideInternal(Sop * cSop, Sop * cDiv, Sop * vQuo, Sop * vRem,
     // allocate quotient
     vQuo->nCubes = 0;
     vQuo->pCubes = vecsMem->fetch(cSop->nCubes / cDiv->nCubes);
+    VecsMem_OverflowReturn(*vecsMem);
     // for each cube of the cover
     // it either belongs to the quotient or to the remainder
     // Kit_SopForEachCube( cSop, uCube, i )
@@ -343,6 +348,7 @@ void sopDivideInternal(Sop * cSop, Sop * cDiv, Sop * vQuo, Sop * vRem,
     // allocate remainder
     vRem->nCubes = 0;
     vRem->pCubes = vecsMem->fetch(nCubesRem);
+    VecsMem_OverflowReturn(*vecsMem);
     // finally add the remaining unmarked cubes to the remainder 
     // and clean the marked cubes in the cover
     // Kit_SopForEachCube( cSop, uCube, i )
@@ -405,6 +411,7 @@ void sopBestLiteralCover(Sop * cResult, Sop * cSop, unsigned uCube, int nLits,
     // start the cover
     cResult->nCubes = 0;
     cResult->pCubes = vecsMem->fetch(1);
+    VecsMem_OverflowReturn(*vecsMem);
     // set the cube
     // Kit_SopPushCube( cResult, Kit_CubeSetLit(0, iLitBest) );
     cResult->pCubes[cResult->nCubes++] = subgUtil::cubeSetLit(0, iLitBest);
@@ -415,6 +422,7 @@ void sopCommonCubeCover(Sop * cResult, Sop * cSop, VecsMem<unsigned, ISOP_FACTOR
     assert(cSop->nCubes > 0);
     cResult->nCubes = 0;
     cResult->pCubes = vecsMem->fetch(1);
+    VecsMem_OverflowReturn(*vecsMem);
     // Kit_SopPushCube( cResult, Kit_SopCommonCube(cSop) );
     cResult->pCubes[cResult->nCubes++] = sopCommonCube(cSop);
 }
@@ -431,9 +439,11 @@ int sopFactorRec(Sop * cSop, int nLits, VecsMem<unsigned, ISOP_FACTOR_MEM_CAP> *
     // get the divisor
     if (!sopDivisor(cDiv, cSop, nLits, vecsMem))
         return sopFactorTrivialRec(cSop->pCubes, cSop->nCubes, nLits, subg);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
     
     // divide the cover by the divisor
     sopDivideInternal(cSop, cDiv, cQuo, cRem, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
 
     // check the trivial case
     assert(cQuo->nCubes > 0);
@@ -445,21 +455,26 @@ int sopFactorRec(Sop * cSop, int nLits, VecsMem<unsigned, ISOP_FACTOR_MEM_CAP> *
 
     // divide the cover by the quotient
     sopDivideInternal(cSop, cQuo, cDiv, cRem, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
 
     // check the trivial case
     // if ( Kit_SopIsCubeFree( cDiv ) )
     if (sopCommonCube(cDiv) == 0) {
         eNodeDiv = sopFactorRec(cDiv, nLits, vecsMem, subg);
+        VecsMem_OverflowReturnValue(*vecsMem, -1);
         eNodeQuo = sopFactorRec(cQuo, nLits, vecsMem, subg);
+        VecsMem_OverflowReturnValue(*vecsMem, -1);
         eNodeAnd = subg->addNodeAnd(eNodeDiv, eNodeQuo);
         if (cRem->nCubes == 0)
             return eNodeAnd;
         eNodeRem = sopFactorRec(cRem, nLits, vecsMem, subg);
+        VecsMem_OverflowReturnValue(*vecsMem, -1);
         return subg->addNodeOr(eNodeAnd, eNodeRem);
     }
 
     // get the common cube
     sopCommonCubeCover(cCom, cDiv, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
 
     // solve the simple problem
     return sopFactorLFRec(cSop, cCom, nLits, vecsMem, subg);
@@ -474,16 +489,20 @@ int sopFactorLFRec(Sop * cSop, Sop * cSimple, int nLits, VecsMem<unsigned, ISOP_
     assert(cSimple->nCubes == 1);
     // get the most often occurring literal
     sopBestLiteralCover(cDiv, cSop, cSimple->pCubes[0], nLits, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
     // divide the cover by the literal
     sopDivideByCube(cSop, cDiv, cQuo, cRem, vecsMem);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
     // get the node pointer for the literal
     eNodeDiv = sopFactorTrivialCubeRec(cDiv->pCubes[0], 0, nLits, subg);
     // factor the quotient and remainder
     eNodeQuo = sopFactorRec(cQuo, nLits, vecsMem, subg);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
     eNodeAnd = subg->addNodeAnd(eNodeDiv, eNodeQuo);
     if (cRem->nCubes == 0)
         return eNodeAnd;
     eNodeRem = sopFactorRec(cRem, nLits, vecsMem, subg);
+    VecsMem_OverflowReturnValue(*vecsMem, -1);
     return subg->addNodeOr(eNodeAnd, eNodeRem);
 }
 
@@ -520,8 +539,10 @@ void sopFactor(unsigned * vCover, int nCoverSize, int fCompl, const int * vCuts,
     }
     // perform CST
     sopCreateInverse(cSop, vCover, nCoverSize, vecsMem);
+    VecsMem_OverflowReturn(*vecsMem);
     // factor the cover
     eRoot = sopFactorRec(cSop, 2 * nVars, vecsMem, subg);
+    VecsMem_OverflowReturn(*vecsMem);
 
     // int lit0, lit1, fCompRoot;
     // printf("    subg: ");

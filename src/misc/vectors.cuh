@@ -8,8 +8,7 @@ struct VecsMem {
         if (nWords <= 0)
             return NULL;
         if (nSize + nWords > nCap) {
-            printf("try to decrease K in refactor !!!\n");
-            assert(0);
+            nSize += nWords;
             return NULL;
         }
         nSize += nWords;
@@ -21,6 +20,16 @@ struct VecsMem {
         nSize = nSizeNew;
     }
 
+    __host__ __device__ __forceinline__ int overflow() const {
+        return nSize > nCap;
+    }
+
     int nSize = 0;
     T pArray[nCap];
 };
+
+
+#define VecsMem_OverflowReturn(mem)             \
+    if ((mem).overflow()) return
+#define VecsMem_OverflowReturnValue(mem, value) \
+    if ((mem).overflow()) return (value)

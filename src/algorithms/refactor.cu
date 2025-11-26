@@ -1284,8 +1284,6 @@ void AIGMan::refactor(bool fAlgMFFC, bool fUseZeros, int cutSize) {
         printf("refactor: maximum cut size is %d!\n", MAX_CUT_SIZE);
         return;
     }
-    if (cutSize != 12)
-        printf("refactor: cut size updated to %d\n", cutSize);
     
     if (!aigCreated) {
         printf("refactor: AIG is null! \n");
@@ -1320,9 +1318,19 @@ clock_t startFullTime = clock();
     int * vhFanin0New, * vhFanin1New, * vhOutsNew;
 clock_t startAlgTime = clock();
     if (fAlgMFFC) {
-        std::tie(nObjsNew, vhFanin0New, vhFanin1New, vhOutsNew, nLevelsNew) = refactorMFFCPerform(
-            fUseZeros, cutSize, nObjs, nPIs, nPOs, nNodes, 
-            d_pFanin0, d_pFanin1, d_pOuts, d_pNumFanouts, d_pLevel, pOuts, pNumFanouts, verbose);
+        while (cutSize >= 6) {
+            std::tie(nObjsNew, vhFanin0New, vhFanin1New, vhOutsNew, nLevelsNew) = refactorMFFCPerform(
+                fUseZeros, cutSize, nObjs, nPIs, nPOs, nNodes, 
+                d_pFanin0, d_pFanin1, d_pOuts, d_pNumFanouts, d_pLevel, pOuts, pNumFanouts, verbose);
+            if (nObjsNew == -2) {
+                // overflow, decrease K and try again
+                cutSize--;
+                if (verbose >= 1)
+                    printf("refactor: decrease K to %d and try again.\n", cutSize);
+                continue;
+            }
+            break;
+        }
     } else {
         std::tie(nObjsNew, vhFanin0New, vhFanin1New, vhOutsNew, nLevelsNew) = refactorPerform(
             fUseZeros, cutSize, nObjs, nPIs, nPOs, nNodes, 

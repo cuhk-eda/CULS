@@ -179,7 +179,9 @@ __global__ void resynCut(const int * vResynInd, const int * vCutTable, const int
         //     printf(" ** encountered const 1 truth table!\n");
 
         minatoIsop(vTruth + startIdx, nVars, &vecsMem);
+        assert(!vecsMem.overflow());
         sopFactor(vecsMem.pArray, vecsMem.nSize, 0, &vCutTable[rootId * CUT_TABLE_SIZE], nVars, &vecsMem, &subg0);
+        assert(!vecsMem.overflow());
         nAdded0 = evaluateSubg(rootId, &nNewLevel0, &vCutTable[rootId * CUT_TABLE_SIZE], 
                               nVars, nSaved, 1000000000, pLevels, htKeys, htValues, htCapacity, &subg0);
         if (nAdded0 > -1) {
@@ -189,7 +191,9 @@ __global__ void resynCut(const int * vResynInd, const int * vCutTable, const int
         // check isop + factor in the complemented case
         truthUtil::truthNot(vTruth + startIdx, vTruth + startIdx, nVars);
         minatoIsop(vTruth + startIdx, nVars, &vecsMem);
+        assert(!vecsMem.overflow());
         sopFactor(vecsMem.pArray, vecsMem.nSize, 1, &vCutTable[rootId * CUT_TABLE_SIZE], nVars, &vecsMem, &subg1);
+        assert(!vecsMem.overflow());
         nAdded1 = evaluateSubg(rootId, &nNewLevel1, &vCutTable[rootId * CUT_TABLE_SIZE], 
                               nVars, nSaved, 1000000000, pLevels, htKeys, htValues, htCapacity, &subg1);
         if (nAdded1 > -1) {
@@ -244,7 +248,7 @@ __global__ void resynCut(const int * vResynInd, const int * vCutTable, const int
     }
 }
 
-__global__ void factorFromTruth(const int * vCuts, const int * vCutRanges, 
+__global__ void factorFromTruth(int * pOverflow, const int * vCuts, const int * vCutRanges, 
                                 uint64 * vSubgTable, int * vSubgLinks, int * vSubgLens, int * pSubgTableNext,
                                 const unsigned * vTruth, const unsigned * vTruthNeg, const int * vTruthRanges, 
                                 const unsigned * vTruthElem, int nResyn) {
@@ -274,8 +278,16 @@ __global__ void factorFromTruth(const int * vCuts, const int * vCutRanges,
 
         // isop + factor
         minatoIsop(pTruth, nVars, &vecsMem);
+        if (vecsMem.overflow()) {
+            *pOverflow = 1;
+            return;
+        }
         __syncthreads();
         sopFactor(vecsMem.pArray, vecsMem.nSize, fNeg, vCuts + cutStartIdx, nVars, &vecsMem, &subg);
+        if (vecsMem.overflow()) {
+            *pOverflow = 1;
+            return;
+        }
         __syncthreads();
 
         // save synthesized graph into global table

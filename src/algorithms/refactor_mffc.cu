@@ -717,6 +717,9 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     int nResyn, nCutArrayLen, nTruthArrayLen;
     int currLen;
 
+    if (verbose >= 1)
+        printf("refactor: execute with maximum cut size = %d...\n", cutSize);
+
     cudaMalloc(&vRoots, nObjs * sizeof(int));
     cudaMalloc(&vNodesStatus, nObjs * sizeof(int));
     cudaMalloc(&vNodesIndices, nObjs * sizeof(int));
@@ -864,10 +867,37 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     cudaDeviceSynchronize();
 
     auto startResynTime = clock();
+    int * pOverflow = vSelectedSubgInd, fOverflow = 0;
+    cudaMemset(pOverflow, 0, sizeof(int));
     factorFromTruth<<<NUM_BLOCKS(nResynGraphs, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
-        vCuts, vCutRanges, vSubgTable, vSubgLinks, vSubgLens, pSubgTableNext,
+        pOverflow, vCuts, vCutRanges, vSubgTable, vSubgLinks, vSubgLens, pSubgTableNext,
         vTruths, vTruthsNeg, vTruthRanges, vTruthElem, nResyn
     );
+    cudaMemcpy(&fOverflow, pOverflow, sizeof(int), cudaMemcpyDeviceToHost);
+    if (fOverflow) {
+        // return, decrease K and try again
+        assert(fOverflow == 1);
+        if (verbose >= 1)
+            printf("refactor: local memory overflow during ISOP + factor.\n");
+
+        cudaFree(vNodesIndices);
+        cudaFree(vResynRoots);
+        cudaFree(vCutSizes);
+        cudaFree(vNumSaved);
+        cudaFree(vCuts);
+        cudaFree(vCutRanges);
+        cudaFree(vTruthRanges);
+        cudaFree(vTruths);
+        cudaFree(vTruthsNeg);
+        cudaFree(vTruthElem);
+        cudaFree(vNode2ConeResynIdx);
+        cudaFree(vSubgTable);
+        cudaFree(vSubgLinks);
+        cudaFree(vSubgLens);
+        cudaFree(pSubgTableNext);
+        cudaFree(vSelectedSubgInd);
+        return {-2, NULL, NULL, NULL, -2};
+    }
     gpuErrchk( cudaPeekAtLastError() );
     gpuErrchk( cudaDeviceSynchronize() );
     printf("ISOP + factor time: %.2lf sec\n", (clock() - startResynTime) / (double) CLOCKS_PER_SEC);
