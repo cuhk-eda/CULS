@@ -95,12 +95,12 @@ int rewriteHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) 
 }
 
 int refactorHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
-    bool fUseZeros = false, fAlgMFFC = false;
+    bool fUseZeros = false, fAlgMFFC = true;
     int cutSize = 12;
 
     CLI::App parser("Perform refactor");
     parser.add_flag("-z", fUseZeros, descWithDefault("fUseZeros", fUseZeros));
-    parser.add_flag("-m", fAlgMFFC, descWithDefault("fAlgMFFC", fAlgMFFC));
+    parser.add_flag("-m", fAlgMFFC, descWithDefault("fAlgMFFC (deprecated, always true)", fAlgMFFC));
     parser.add_option("-K", cutSize, descWithDefault("cut size (<=15)", cutSize));
     parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
 
