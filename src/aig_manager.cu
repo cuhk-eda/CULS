@@ -679,7 +679,7 @@ __global__ void updateDeviceStats(const int nEntries, const int nPIs, int * pnNo
     }
 }
 
-void AIGMan::balance(int sortDecId) {
+void AIGMan::balance(int sortDecId, bool updateLevel) {
     if (!aigCreated) {
         printf("balance: AIG is null! \n");
         return;
@@ -725,6 +725,9 @@ totalAlgTime += prevAlgTime;
     assert(deviceAllocated);
 
     nLevels = -1; // the levels of the AIG is not computed in balancing!
+
+    if(updateLevel)
+        strash(false, false);
 
     prevCmdRewrite = 0;
 prevFullTime = clock() - startFullTime;

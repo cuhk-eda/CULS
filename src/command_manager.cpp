@@ -74,7 +74,7 @@ int balanceHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) 
         printf("** balance without using id as tie break when sorting.\n");
     }
 
-    aigman.balance(sortDecId);
+    aigman.balance(sortDecId, true); // strash to update level if balance is called manually
     return 0;
 }
 

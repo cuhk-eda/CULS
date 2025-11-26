@@ -20,7 +20,7 @@ public:
 
     // algorithms
     void strash(bool fCPU = false, bool fRecordTime = true);
-    void balance(int sortDecId = 1);
+    void balance(int sortDecId = 1, bool updateLevel = false);
     void rewrite(bool fUseZeros = false, bool fGPUDeduplicate = false);
     void refactor(bool fAlgMFFC = false, bool fUseZeros = false, int cutSize = 12);
     void resub(bool fUseZeros = false, bool fUseConstr = true, bool fUpdateLevel = false, int cutSize = 8, int addNodes = 1);
