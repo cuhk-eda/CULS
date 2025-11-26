@@ -595,7 +595,8 @@ void ShowMemory() {
 
     double used_db = total_db - free_db ;
 
-    printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", used_db/1024.0/1024.0, free_db/1024.0/1024.0, total_db/1024.0/1024.0);
+    printf("GPU memory usage: used = %.2f MB, free = %.2f MB, total = %.2f MB\n", 
+        used_db/1024.0/1024.0, free_db/1024.0/1024.0, total_db/1024.0/1024.0);
 }
 
 __global__ void printCuts(int id, Cut *cuts) {
@@ -635,7 +636,7 @@ void GPUSolver::Init(int n) {
     size_t limit = 0;
     cudaDeviceGetLimit(&limit, cudaLimitStackSize);
     cudaStackSize = limit;
-    printf("GPUSolver: setting cudaLimitStackSize = %lu\n", limit * 12);
+    printf("GPUSolver: setting cudaLimitStackSize = %lu KB\n", limit * 12 / 1024);
     cudaDeviceSetLimit(cudaLimitStackSize, limit * 12);
     cudaMalloc(&fanin0, static_cast<int> (RATIO * (n + 1) * sizeof(int)));
     cudaMalloc(&fanin1, static_cast<int> (RATIO * (n + 1) * sizeof(int)));
@@ -646,13 +647,14 @@ void GPUSolver::Init(int n) {
     cudaMalloc(&phase, static_cast<int> (RATIO * (n + 1) * sizeof(int)));
     cudaMalloc(&replace, static_cast<int> (RATIO * (n + 1) * sizeof(int)));
     cudaMalloc(&lib, sizeof(Library));
-    ShowMemory();
+    // ShowMemory();
     cudaMalloc(&newTable, (2 * n + 1 + P) * sizeof(TableNode));
     cudaMalloc(&hashTable, (2 * n + 1 + P) * sizeof(TableNode));
-    ShowMemory();
+    // ShowMemory();
     cudaMalloc(&selectedCuts, (n + 1) * sizeof(Cut));
     ShowMemory();
-    cudaMalloc(&cuts, sizeof(Cut) * CUT_SET_SIZE * (n + 1) );
+    printf("memory needed for Cut: %.2f MB\n", 1.0*sizeof(Cut) * (n + 1) * CUT_SET_SIZE / 1024/1024);
+    CHECK_CUDA( cudaMalloc(&cuts, sizeof(Cut) * (n + 1) * CUT_SET_SIZE ) );
     ShowMemory();
 }
 

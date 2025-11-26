@@ -149,6 +149,21 @@ Aig::reverseLevelWiseSchemeCPU(const int * vFanin0, const int * vFanin1, const i
 
 }
 
+__global__ void getFanoutGPUSinglePO(const int* d_pOuts, int nPIs, int nObjs, int nPOs, 
+        int* vFanoutRanges, int* vFanoutInd, int* fanoutRef) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int nThreads = gridDim.x * blockDim.x;
+    int nodeId, startIdx, oldRef, fanin0Id;
+    for(; idx<nPOs; idx+=nThreads){
+        nodeId = idx+nObjs;
+        fanin0Id = dUtils::AigNodeID(d_pOuts[idx]);
+        startIdx = vFanoutRanges[fanin0Id];
+        oldRef = atomicSub(&fanoutRef[fanin0Id], 1);
+        assert(oldRef);
+        vFanoutInd[startIdx-oldRef] = nodeId;
+
+    }
+}
 
 // if vMarks[nodeId]=1, this node is blocked
 // vMarks start from nNodes
@@ -157,19 +172,6 @@ __global__ void getFanoutGPUSingle(const int* d_pFanin0, const int* d_pFanin1, c
     int nThreads = gridDim.x * blockDim.x;
     int nodeId, startIdx, oldRef, fanin0Id, fanin1Id;
     for(; idx<nObjs; idx+=nThreads){
-        // first handle with POs
-        if(idx<nPOs){
-            nodeId = idx+nObjs;
-            fanin0Id = dUtils::AigNodeID(d_pOuts[idx]);
-            startIdx = vFanoutRanges[fanin0Id];
-            oldRef = atomicSub(&fanoutRef[fanin0Id], 1);
-            assert(oldRef);
-            vFanoutInd[startIdx-oldRef] = nodeId;
-
-        }
-
-
-        // then the nodes
         nodeId = idx;
         // printf("nodeId %d, fanoutRef %d\n", nodeId, fanoutRef[nodeId]);
         if(dUtils::AigIsPIConst(nodeId, nPIs)) continue;
@@ -195,7 +197,12 @@ void Aig::getFanoutGPU(const int* d_pFanin0, const int* d_pFanin1, const int* d_
     int *fanoutRef;
     cudaMalloc(&fanoutRef, sizeof(int)*nObjs);
     cudaMemcpy(fanoutRef, d_pNumFanouts, sizeof(int)*nObjs, cudaMemcpyDeviceToDevice);
-    getFanoutGPUSingle<<<NUM_BLOCKS(nObjs, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(d_pFanin0, d_pFanin1, d_pOuts, nPIs, nObjs, nPOs, vFanoutRanges, vFanoutInd, fanoutRef, vMarks);
+    getFanoutGPUSinglePO<<<NUM_BLOCKS(nPOs, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
+        d_pOuts, nPIs, nObjs, nPOs, vFanoutRanges, vFanoutInd, fanoutRef);
+    cudaDeviceSynchronize();
+    getFanoutGPUSingle<<<NUM_BLOCKS(nObjs, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
+        d_pFanin0, d_pFanin1, d_pOuts, nPIs, nObjs, nPOs, 
+        vFanoutRanges, vFanoutInd, fanoutRef, vMarks);
     cudaDeviceSynchronize();
     
     cudaFree(fanoutRef);

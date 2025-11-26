@@ -22,7 +22,7 @@ void aigEncodeBinary(char *buffer, int &cur, unsigned x);
 AIGMan::AIGMan(int mainManager):
     nObjs(0), nPIs(0), nPOs(0), nNodes(0), pFanin0(NULL), pFanin1(NULL), pOuts(NULL), pLevel(NULL), 
     moduleName("module"), modulePath(""), moduleInfo(""), deviceAllocated(0), nLevels(0), 
-    mainManager(mainManager)
+    mainManager(mainManager), verbose(1)
 {
     if (mainManager) {
         size_t dynamicHeapSize;
@@ -65,6 +65,17 @@ void AIGMan::addAuxAig(AIGMan * pManAux) {
     vManAux.push_back(pManAux);
 }
 
+void AIGMan::setAlgTime(clock_t startTime, bool updateTotal){
+    prevAlgTime = clock() - startTime;
+    if (updateTotal)
+        totalAlgTime += prevAlgTime;
+}
+
+void AIGMan::setFullTime(clock_t startTime, bool updateTotal){
+    prevFullTime = clock() - startTime;
+    if (updateTotal)
+        totalFullTime += prevFullTime;
+}
 
 int AIGMan::readFile(const char * path) {
     if (deviceAllocated) {
@@ -619,14 +630,17 @@ void AIGMan::updateLevel(int * pLevel, int * pFanin0, int * pFanin1, int nObjs, 
 /* -------------- Algorithm Main Entrance -------------- */
 
 void AIGMan::rewrite(bool fUseZeros, bool fGPUDeduplicate) {
-    if (fUseZeros) {
-        printf("rewrite: use zeros activated!\n");
-    }
-        
-
     if (!aigCreated) {
         printf("rewrite: AIG is null! \n");
         return;
+    }
+    if (nNodes == 0)
+        return;
+
+    if(verbose>=1) {
+        printf("\n*****Perform Rewrite*****\n");
+        if (fUseZeros)
+            printf("rewrite: use zeros activated!\n");
     }
 
 clock_t startFullTime = clock();
@@ -670,6 +684,10 @@ void AIGMan::balance(int sortDecId) {
         printf("balance: AIG is null! \n");
         return;
     }
+    if (nNodes == 0)
+        return;
+
+    if(verbose>=1)  printf("\n*****Perform Balance*****\n");
 
 clock_t startFullTime = clock();
 
@@ -717,6 +735,13 @@ printf("balance: alg time %.2lf, full time %.2lf\n",
 
 
 void AIGMan::resub(bool fUseZeros, bool fUseConstr, bool fUpdateLevel, int cutSize, int addNodes){
+    if (!aigCreated) {
+        printf("resub: AIG is null! \n");
+        return;
+    }
+    if (nNodes == 0)
+        return;
+
     if(verbose>=1) {
         printf("\n*****Perform %d-Resub*****\n", addNodes);
         if (fUseZeros)

@@ -193,7 +193,7 @@ __global__ void simulateResub(const int * pFanin0, const int * pFanin1,
 
     int visited[STACK_SIZE], visitedSize;
 
-    unsigned* divTruthLocal;
+    unsigned* divTruthLocal, * vTruthLocal;
     int* divisorLocal, *nodePhaseLocal;
 
 
@@ -202,18 +202,16 @@ __global__ void simulateResub(const int * pFanin0, const int * pFanin1,
         nVars = vCutSizes[idx];
         nWords = dUtils::TruthWordNum(nVars);
         divisorLocal = divisor + idx*DIVISOR_SIZE;
-        divTruthLocal = divisorTruth + idx*nWordsElem*DIVISOR_SIZE; 
+        divTruthLocal = divisorTruth + (long unsigned int)idx*nWordsElem*DIVISOR_SIZE; 
         nodePhaseLocal = nodePhase + idx*DIVISOR_SIZE;
+        vTruthLocal = vTruth + idx*nWordsElem;
         if(simSize[idx]==0) continue;
         assert(simSize[idx]<DIVISOR_SIZE);
 
         visitedSize = 0;
         for(int i=0; i<nVars; i++){
-            for (int j = 0; j < nWords; j++){
+            for (int j = 0; j < nWords; j++)
                 divTruthLocal[i * nWords + j] = vTruthElem[i * nWordsElem + j];
-                // assert(i*nWordsElem+j>=0);
-                // assert(i*nWordsElem+j < nMaxCutSize * nWordsElem);
-            }
             visited[visitedSize++] = divisorLocal[i];
         }
         for(int i=nVars; i<simSize[idx]; i++){
@@ -236,7 +234,7 @@ __global__ void simulateResub(const int * pFanin0, const int * pFanin1,
 
         
         for (int i = 0; i < nWords; i++)
-            *(vTruth+idx*nWordsElem+i) = divTruthLocal[(visitedSize - 1) * nWords + i];
+            vTruthLocal[i] = divTruthLocal[(visitedSize - 1) * nWords + i]; 
 
 
     }
@@ -268,18 +266,26 @@ __device__ int traceBackResub(int rootLIt, int* decGraph, int *vMaskValid){
     return newLit;
 }
 
+__global__ void reconstructPO(int* d_pFanin0, int* d_pFanin1, int* d_pOuts, int nObjs, int* vValidEnumInd, int nValid, int nPOs,
+                            int* decGraph, int* vIntMFFCNodes, int* vIntMFFCNodesInd, int* vMFFCNumSaved, int* vMaskValid){
+    int nThreads = gridDim.x * blockDim.x;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int rootId;
+
+    for (; idx < nPOs; idx += nThreads) {
+        rootId = vValidEnumInd[idx];
+        d_pOuts[idx] = traceBackResub(d_pOuts[idx], decGraph, vMaskValid);
+    }
+}
 
 __global__ void reconstruct(int* d_pFanin0, int* d_pFanin1, int* d_pOuts, int nObjs, int* vValidEnumInd, int nValid, int nPOs,
-                            int* decGraph, int* vIntMFFCNodes, int* vIntMFFCNodesInd, int* vMFFCNumSaved, int* vMaskValid, const int* d_pLevel){
+                            int* decGraph, int* vIntMFFCNodes, int* vIntMFFCNodesInd, int* vMFFCNumSaved, int* vMaskValid){
     int nThreads = gridDim.x * blockDim.x;
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int rootId, MFFCSize;
     int* pMFFCLocal, *decGraphLocal;
     for (; idx < nValid; idx += nThreads) {
         rootId = vValidEnumInd[idx];
-        if(idx<nPOs){
-            d_pOuts[idx] = traceBackResub(d_pOuts[idx], decGraph, vMaskValid);
-        }
         if(vMaskValid[rootId]==STATUS_DELETE)   continue;
         if(vMaskValid[rootId]!=STATUS_ROOT && vMaskValid[rootId]!=STATUS_DELETE){
             int newFaninLit0 = traceBackResub(d_pFanin0[rootId], decGraph, vMaskValid);
@@ -330,11 +336,6 @@ __global__ void reconstruct(int* d_pFanin0, int* d_pFanin1, int* d_pOuts, int nO
             d_pFanin1[rootId] = newFaninLit3;
             d_pFanin0[dUtils::AigNodeID(newFaninLit0)] = newFaninLit1;
             d_pFanin1[dUtils::AigNodeID(newFaninLit0)] = newFaninLit2;
-// int id1 = dUtils::AigNodeID(newFaninLit1), id2 = dUtils::AigNodeID(newFaninLit2), id3 = dUtils::AigNodeID(newFaninLit3);
-// int level1 = d_pLevel[id1], level2 = d_pLevel[id2], level3 = d_pLevel[id3]; 
-// int rootLevel = d_pLevel[rootId];
-// if(rootLevel-level1<=1 || rootLevel-level2 <=1)
-//     printf("%d(%d) <- %d(%d) %d(%d) %d(%d)\n", rootId, rootLevel, id1, level1, id2, level2, id3, level3);
 
         }
         if(resubType==3){
@@ -944,7 +945,7 @@ printCheckPoint(0, time, "begin");
     cudaMemGetInfo(&free_memory, &t);
     // includes the three intermediate array in getMffcCutResub
     double scale = (double)(DIVISOR_SIZE * 3 + STACK_SIZE*7 + DIV2_MAX * 4 + nWords * DIVISOR_SIZE) * sizeof(int);
-    maxLevelUpperBound = (int) ((double)free_memory * 0.85 / scale);
+    maxLevelUpperBound = (int) ((double)free_memory * 0.7 / scale);
 
     int numNewLevel = (nObjs+maxLevelUpperBound-1) / maxLevelUpperBound;
     maxLevelSize = nObjs;
@@ -1030,7 +1031,8 @@ printCheckPoint(1, time, "data prepare");
             vLevelNodes + startIdx, vCutTable, vCutSizes, nValid, nPIs, cutSize, 100,
             intNodesInd, intNodesSize
         );
-        cudaDeviceSynchronize();
+        gpuErrchk( cudaPeekAtLastError() );
+        gpuErrchk( cudaDeviceSynchronize() );
 
         if(verbose>=4){    
             printReconvCut<<<1,1>>>(
@@ -1063,7 +1065,8 @@ printCheckPoint(1, time, "data prepare");
             vTruth, vTruthElem, nValid, nPIs, cutSize, 
             divisor, divisorTruth, divisorSize, simSize, nodePhase
         );
-        cudaDeviceSynchronize();
+        gpuErrchk( cudaPeekAtLastError() );
+        gpuErrchk( cudaDeviceSynchronize() );
 
         // consier const
         resubDivsC<<<NUM_BLOCKS(nValid, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
@@ -1173,13 +1176,21 @@ printCheckPoint(3, time, "conflict resolve");
     pNewGlobalListEnd = thrust::copy_if(thrust::device, vSeq, vSeq + nObjs, vMaskValid, vValidEnumInd, dUtils::isMinusOne<int>());
     int nValid = pNewGlobalListEnd - vValidEnumInd;
     printf("there are %d nodes to be replaced\n", nValid);
-    assert(nNodes>=nPOs);
-    reconstruct<<<NUM_BLOCKS(nNodes, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
-        d_pFanin0, d_pFanin1, d_pOuts, nObjs, vSeq+1+nPIs, nNodes, nPOs, decGraph, vIntMFFCNodes, vIntMFFCNodesInd, vMFFCNumSaved, vMaskValid, d_pLevel
-    );
-    cudaDeviceSynchronize();
+    if(nValid){
+        reconstructPO<<<NUM_BLOCKS(nPOs, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
+            d_pFanin0, d_pFanin1, d_pOuts, nObjs, vSeq+1+nPIs, nNodes, nPOs, decGraph, vIntMFFCNodes, vIntMFFCNodesInd, vMFFCNumSaved, vMaskValid
+        );
+        cudaDeviceSynchronize();
+        reconstruct<<<NUM_BLOCKS(nNodes, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(
+            d_pFanin0, d_pFanin1, d_pOuts, nObjs, vSeq+1+nPIs, nNodes, nPOs, decGraph, vIntMFFCNodes, vIntMFFCNodesInd, vMFFCNumSaved, vMaskValid
+        );
+        cudaDeviceSynchronize();
+    }
+    gpuErrchk( cudaPeekAtLastError() );
+    gpuErrchk( cudaDeviceSynchronize() );
     // delete 0-resub and recover the inner nodes
-    deleteZeroResub<<<NUM_BLOCKS(nValid, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(vValidEnumInd, nValid, decGraph, vMaskValid);
+    if(nValid)
+        deleteZeroResub<<<NUM_BLOCKS(nValid, THREAD_PER_BLOCK), THREAD_PER_BLOCK>>>(vValidEnumInd, nValid, decGraph, vMaskValid);
     cudaDeviceSynchronize();
     // attention that fanout has been changed
     danglingDetector(d_pFanin0, d_pFanin1, d_pOuts, vMaskValid,  nNodes, nObjs, nPIs, nPOs, verbose);

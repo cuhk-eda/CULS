@@ -39,6 +39,8 @@ public:
     void setPrevCmdRewrite(int prevCmdRewrite);
     AIGMan * getAuxAig(const std::string & name);
     void addAuxAig(AIGMan * pManAux);
+    void setAlgTime(clock_t startTime, bool updateTotal = false);
+    void setFullTime(clock_t startTime, bool updateTotal = false);
     void updateLevel(int * pLevel, int * pFanin0, int * pFanin1, int nObjs, int nPIs);
 
     // debug uses

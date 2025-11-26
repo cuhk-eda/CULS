@@ -59,65 +59,70 @@ int printStatsHandler(AIGMan & aigman, const std::vector<std::string> & vLiteral
 }
 
 int balanceHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
+    bool fSort = false;
+    CLI::App parser("Perform Balance");
+    parser.add_flag("-s", fSort, descWithDefault("using id when sorting", fSort));
+    parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
+
+    int ret;
+    if((ret = parseCmd(parser, vLiterals)) < 2 )
+        return ret;
+
     int sortDecId = 1;
-    for (int i = 1; i < vLiterals.size(); i++) {
-        if (vLiterals[i] == "-s") {
-            sortDecId = 0;
-            printf("** balance without using id as tie break when sorting.\n");
-        }
+    if(fSort){
+        sortDecId = 0;
+        printf("** balance without using id as tie break when sorting.\n");
     }
+
     aigman.balance(sortDecId);
     return 0;
 }
 
 int rewriteHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     bool fUseZeros = false, fGPUDeduplicate = true;
-    for (int i = 1; i < vLiterals.size(); i++) {
-        if (vLiterals[i] == "-z") {
-            fUseZeros = true;
-        } else if (vLiterals[i] == "-d") {
-            fGPUDeduplicate = true;
-        }
-    }
+
+    CLI::App parser("Perform rewrite");
+    parser.add_flag("-z", fUseZeros, descWithDefault("using zero", fUseZeros));
+    parser.add_flag("-d", fGPUDeduplicate, descWithDefault("using GPU deduplicate", fGPUDeduplicate));
+    parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
+
+    int ret;
+    if((ret = parseCmd(parser, vLiterals)) < 2 )
+        return ret;
+
     aigman.rewrite(fUseZeros, fGPUDeduplicate);
     return 0;
 }
 
 int refactorHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     bool fUseZeros = false, fAlgMFFC = false;
-    bool fCutSize = false;
     int cutSize = 12;
-    for (int i = 1; i < vLiterals.size(); i++) {
-        if (vLiterals[i] == "-z") {
-            fUseZeros = true;
-        } else if (vLiterals[i] == "-m") {
-            fAlgMFFC = true;
-        } else if (vLiterals[i] == "-K") {
-            fCutSize = true;
-            continue;
-        }
 
-        if (fCutSize) {
-            try {
-                cutSize = std::stoi(vLiterals[i]);
-            } catch(std::invalid_argument const& ex) {
-                printf("Wrong cut size format! Use default value 12. \n");
-                cutSize = 12;
-            }
-            fCutSize = false;
-        }
-    }
+    CLI::App parser("Perform refactor");
+    parser.add_flag("-z", fUseZeros, descWithDefault("fUseZeros", fUseZeros));
+    parser.add_flag("-m", fAlgMFFC, descWithDefault("fAlgMFFC", fAlgMFFC));
+    parser.add_option("-K", cutSize, descWithDefault("cut size (<=15)", cutSize));
+    parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
+
+    int ret;
+    if((ret = parseCmd(parser, vLiterals)) < 2 )
+        return ret;
+
     aigman.refactor(fAlgMFFC, fUseZeros, cutSize);
     return 0;
 }
 
 int strashHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     bool fCPU = false;
-    for (int i = 1; i < vLiterals.size(); i++) {
-        if (vLiterals[i] == "-c") {
-            fCPU = true;
-        }
-    }
+
+    CLI::App parser("Perform Structural Hash");
+    parser.add_flag("-c", fCPU, descWithDefault("fCPU", fCPU));
+    parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
+
+    int ret;
+    if((ret = parseCmd(parser, vLiterals)) < 2 )
+        return ret;
+
     aigman.strash(fCPU, true);
     return 0;
 }
@@ -132,22 +137,16 @@ int resyn2Handler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     CLI::App parser("Perform resyn2");
     parser.add_option("-K", cutSize, 
                       descWithDefault("maximum cut size used in refactoring", cutSize));
+    parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
     
-    std::string cmd = "";
-    for (int i = 0; i < vLiterals.size(); i++) {
-        cmd += vLiterals[i];
-        if (i != vLiterals.size() - 1)
-            cmd += " ";
-    }
+    int ret;
+    if((ret = parseCmd(parser, vLiterals)) < 2 )
+        return ret;
 
-    try {
-        parser.parse(cmd, true);
-    } catch (const CLI::CallForHelp &e) {
-        std::cout << parser.help();
+    if (aigman.nNodes == 0)
         return 0;
-    } catch (const CLI::ParseError &e) {
-        return 1;
-    }
+
+clock_t startTime = clock();
 
     aigman.balance(1);
     aigman.rewrite(false, true);
@@ -165,6 +164,9 @@ int resyn2Handler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     aigman.balance(0);
     aigman.strash(false, true);
 
+aigman.setAlgTime(startTime);
+aigman.setFullTime(startTime);
+
     return 0;
 }
 
@@ -177,8 +179,7 @@ int resubHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals) {
     parser.add_flag("-l", fUpdateLevel, descWithDefault("fUpdateLevel", fUpdateLevel));
     parser.add_option("-k", cutSize, descWithDefault("cut size (<=15)", cutSize));
     parser.add_option("-n", addNodes, descWithDefault("max number of nodes to add (0 <= num <=3 )", addNodes));
-    parser.add_option("-v", verbose, descWithDefault("verbose level", verbose));
-    aigman.verbose = verbose;
+    parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
 
     int ret;
     if((ret = parseCmd(parser, vLiterals)) < 2 )
@@ -198,13 +199,28 @@ int resyn2rsHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals)
     // rs -k 10; rw -z -d; rs -k 10 -n 2; b; st;
     // rs -k 10; st; rf -m -z -K 10; st; rs -k 10 -n 2; rw -d -z; b; st;
 
+    int cutSize = 12;
+    CLI::App parser("Perform resyn2rs");
+    parser.add_option("-K", cutSize, 
+                      descWithDefault("maximum cut size used in refactoring", cutSize));
+    parser.add_option("-v", aigman.verbose, descWithDefault("verbose level", aigman.verbose));
+    
+    int ret;
+    if((ret = parseCmd(parser, vLiterals)) < 2 )
+        return ret;
+
+    if (aigman.nNodes == 0)
+        return 0;
+
+clock_t startTime = clock();
+
     aigman.balance(1);
     aigman.strash(false, true);
     aigman.resub(false, true, false, 6, 1);
     aigman.rewrite(false, true);
     aigman.resub(false, true, false, 6, 2);
     aigman.strash(false, true);
-    aigman.refactor(true, false, 10);
+    aigman.refactor(true, false, cutSize);
     aigman.strash(false, true);
 
     aigman.resub(false, true, false, 8, 1);
@@ -221,12 +237,15 @@ int resyn2rsHandler(AIGMan & aigman, const std::vector<std::string> & vLiterals)
 
     aigman.resub(false, true, false, 10, 1);
     aigman.strash(false, true);
-    aigman.refactor(true, true, 10);
+    aigman.refactor(true, true, cutSize);
     aigman.strash(false, true);
     aigman.resub(false, true, false, 10, 2);
     aigman.rewrite(true, true);
     aigman.balance(1);
     aigman.strash(false, true);
+
+aigman.setAlgTime(startTime);
+aigman.setFullTime(startTime);
 
     return 0;
 }
@@ -254,6 +273,7 @@ void CmdMan::registerAllCommands() {
 
     registerCommand("resyn2", resyn2Handler);
     registerCommand("resyn2rs", resyn2rsHandler);
+    registerCommand("r2rs", resyn2rsHandler);
 }
 
 void CmdMan::registerCommand(const std::string & cmd, const CommandHandler & cmdHandlerFunc) {

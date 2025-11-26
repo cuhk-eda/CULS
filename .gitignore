@@ -5,8 +5,11 @@ build*/
 *.log
 *.csv
 *.aig
+*.aag
+*.txt
 *.blif
 test_cuda*
+abc*
 .cache/
 logic_my_suite/
 *.py

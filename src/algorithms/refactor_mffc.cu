@@ -490,7 +490,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
                 uint64 * vSubgTable, int * vSubgLinks, int * vSubgLens, 
                 const int * vResynRoots, const int * vCuts, const int * vCutRanges,
                 const int * vSelectedSubgInd, int * vOldRoot2NewRootLits, 
-                int nObjs, int nResyn) {
+                int nObjs, int nResyn, int verbose) {
     // create a sequence of resyn indices and shrink it iteratively,
     // but do not change vSelectedSubgInd since it is aligned with vResynRoots
     int * vResynIdSeq, * vFinishedMark, * pNewListEnd;
@@ -509,7 +509,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
                                     vFinishedMark, thrust::identity<int>());
     assert(pNewListEnd - vResynIdSeq <= nResyn);
     int nReplace = pNewListEnd - vResynIdSeq;
-    printf("Number of subgraphs to be inserted: %d\n", nReplace);
+    if(verbose>=2)  printf("Number of subgraphs to be inserted: %d\n", nReplace);
 
     int iter = 0; // the index of subgraph nodes that are being processed in the current iteration
     int idCounter = nObjs; // used for assigning new tentative ids of inserted nodes
@@ -538,7 +538,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
         nReplace = pNewListEnd - vResynIdSeq;
         
         iter++;
-        printf("iter %d: number of subgraphs remained: %d\n", iter, nReplace);
+        if(verbose>=2)  printf("iter %d: number of subgraphs remained: %d\n", iter, nReplace);
     }
 
     // debug
@@ -696,7 +696,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
                     int nObjs, int nPIs, int nPOs, int nNodes, 
                     const int * d_pFanin0, const int * d_pFanin1, const int * d_pOuts, 
                     const int * d_pNumFanouts, const int * d_pLevel, 
-                    int * pOuts, int * pNumFanouts) {
+                    int * pOuts, int * pNumFanouts, int verbose) {
     int * vRoots, * vNodesStatus;
     int * vNodesIndices;
     int * vCutTable, * vCutSizes, * vNumSaved;
@@ -745,7 +745,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     currLen = pNewGlobalListEnd - vRoots;
 
     int levelCount = 0;
-    printf("Level %d, global list len %d\n", levelCount, currLen);
+    if(verbose>=3) printf("Level %d, global list len %d\n", levelCount, currLen);
 
     while (currLen > 0) {
         cudaMemset(vNodesStatus, 0, nObjs * sizeof(int));
@@ -769,7 +769,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
         currLen = pNewGlobalListEnd - vRoots;
         
         levelCount++;
-        printf("Level %d, global list len %d\n", levelCount, currLen);
+        if(verbose>=3) printf("Level %d, global list len %d\n", levelCount, currLen);
     }
     cudaFree(vRoots);
     cudaFree(vNodesStatus);
@@ -909,7 +909,7 @@ refactorMFFCPerform(bool fUseZeros, int cutSize,
     cudaMalloc(&vOldRoot2NewRootLits, nObjs * sizeof(int));
     cudaMemset(vOldRoot2NewRootLits, -1, nObjs * sizeof(int));
     int nBufferLen = insertMFFCs(htNewKeys, htNewValues, htNewCapacity, vSubgTable, vSubgLinks, vSubgLens,
-                                 vResynRoots, vCuts, vCutRanges, vSelectedSubgInd, vOldRoot2NewRootLits, nObjs, nResyn);
+                                 vResynRoots, vCuts, vCutRanges, vSelectedSubgInd, vOldRoot2NewRootLits, nObjs, nResyn, verbose);
     gpuErrchk( cudaPeekAtLastError() );
     gpuErrchk( cudaDeviceSynchronize() );
 

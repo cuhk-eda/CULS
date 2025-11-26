@@ -1265,6 +1265,15 @@ void updateLevel(int * pLevel, int * pFanin0, int * pFanin1, int nObjs, int nPIs
 void AIGMan::refactor(bool fAlgMFFC, bool fUseZeros, int cutSize) {
     bool fDeduplicate = false;
 
+    if (!aigCreated) {
+        printf("refactor: AIG is null! \n");
+        return;
+    }
+    if (nNodes == 0)
+        return;
+
+    if(verbose>=1)  printf("\n*****Perform Refactor*****\n");
+
     if (fUseZeros)
         printf("refactor: use zeros activated!\n");
     
@@ -1313,7 +1322,7 @@ clock_t startAlgTime = clock();
     if (fAlgMFFC) {
         std::tie(nObjsNew, vhFanin0New, vhFanin1New, vhOutsNew, nLevelsNew) = refactorMFFCPerform(
             fUseZeros, cutSize, nObjs, nPIs, nPOs, nNodes, 
-            d_pFanin0, d_pFanin1, d_pOuts, d_pNumFanouts, d_pLevel, pOuts, pNumFanouts);
+            d_pFanin0, d_pFanin1, d_pOuts, d_pNumFanouts, d_pLevel, pOuts, pNumFanouts, verbose);
     } else {
         std::tie(nObjsNew, vhFanin0New, vhFanin1New, vhOutsNew, nLevelsNew) = refactorPerform(
             fUseZeros, cutSize, nObjs, nPIs, nPOs, nNodes, 

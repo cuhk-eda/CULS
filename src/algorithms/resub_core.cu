@@ -80,7 +80,7 @@ __global__ void resubDivsC(unsigned* vTruth, const int* vValidEnumInd, const int
         assert(vMaskValid[rootId]==STATUS_VALID || vMaskValid[rootId]==STATUS_SKIP);
         if(vMFFCNumSaved[rootId]==0)    continue;
         int rootIdx = simSize[idx]-1;
-        divTruthLocal = divisorTruth + idx*DIVISOR_SIZE*nWordsElem;
+        divTruthLocal = divisorTruth + (long unsigned int)idx*DIVISOR_SIZE*nWordsElem;
         int nVars = vCutSize[idx];
         nodePhaseLocal = nodePhase + idx*DIVISOR_SIZE;
         nWords = dUtils::TruthWordNum(nVars);
@@ -127,7 +127,7 @@ __global__ void resubDivs0(unsigned* vTruth, const int* vValidEnumInd, const int
         int rootIdx = simSize[idx]-1;
         int divSize = divisorSize[idx];
         divisorLocal = divisor + idx * DIVISOR_SIZE;
-        divTruthLocal = divisorTruth + idx*DIVISOR_SIZE*nWordsElem;
+        divTruthLocal = divisorTruth + (long unsigned int)idx*DIVISOR_SIZE*nWordsElem;
         int nVars = vCutSize[idx];
         nodePhaseLocal = nodePhase + idx*DIVISOR_SIZE;
         nWords = dUtils::TruthWordNum(nVars);
@@ -188,7 +188,7 @@ __global__ void resubDivs1(unsigned* vTruth, const int* vValidEnumInd, const int
         int MFFCSize = vMFFCNumSaved[rootId];
         if(MFFCSize<=1)  continue;
         divisorLocal = divisor + idx * DIVISOR_SIZE;
-        divTruthLocal = divisorTruth + idx*DIVISOR_SIZE*nWordsElem;
+        divTruthLocal = divisorTruth + (long unsigned int)idx*DIVISOR_SIZE*nWordsElem;
         int nVars = vCutSize[idx];
         nodePhaseLocal = nodePhase + idx*DIVISOR_SIZE;
         terminate = false;
@@ -321,7 +321,7 @@ __global__ void resubDivs12(unsigned* vTruth, const int* vValidEnumInd, const in
         int MFFCSize = vMFFCNumSaved[rootId];
         if(MFFCSize<=2)  continue;
         divisorLocal = divisor + idx * DIVISOR_SIZE;
-        divTruthLocal = divisorTruth + idx*DIVISOR_SIZE*nWordsElem;
+        divTruthLocal = divisorTruth + (long unsigned int)idx*DIVISOR_SIZE*nWordsElem;
         int nVars = vCutSize[idx];
         nodePhaseLocal = nodePhase + idx*DIVISOR_SIZE;
         terminate = false;
@@ -482,7 +482,7 @@ __global__ void resubDivs2(unsigned* vTruth, const int* vValidEnumInd, const int
         int MFFCSize = vMFFCNumSaved[rootId];
         if(MFFCSize<=2)  continue;
         divisorLocal = divisor + idx * DIVISOR_SIZE;
-        divTruthLocal = divisorTruth + idx*DIVISOR_SIZE*nWordsElem;
+        divTruthLocal = divisorTruth + (long unsigned int)idx*DIVISOR_SIZE*nWordsElem;
         int nVars = vCutSize[idx];
         nodePhaseLocal = nodePhase + idx*DIVISOR_SIZE;
         terminate = false;
@@ -664,7 +664,7 @@ __global__ void resubDivs3(unsigned* vTruth, const int* vValidEnumInd, const int
         int MFFCSize = vMFFCNumSaved[rootId];
         if(MFFCSize<=3)  continue;
         divisorLocal = divisor + idx * DIVISOR_SIZE;
-        divTruthLocal = divisorTruth + idx*DIVISOR_SIZE*nWordsElem;
+        divTruthLocal = divisorTruth + (long unsigned int)idx*DIVISOR_SIZE*nWordsElem;
         int nVars = vCutSize[idx];
         nodePhaseLocal = nodePhase + idx*DIVISOR_SIZE;
         terminate = false;
