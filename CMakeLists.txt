@@ -50,7 +50,7 @@ endfunction()
 
 
 
-set(GPULS_CUDA_FLAGS -arch=compute_60 -code=compute_60,sm_60,sm_86)
+set(GPULS_CUDA_FLAGS -arch=compute_86 -code=sm_86)
 set(GPULS_CUDA_FLAGS ${GPULS_CUDA_FLAGS} -std=c++17 -O3 --extended-lambda)
 # set(GPULS_CUDA_FLAGS ${GPULS_CUDA_FLAGS} -rdc=true)
 
