@@ -506,7 +506,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
     );
     cudaDeviceSynchronize();
     pNewListEnd = thrust::remove_if(thrust::device, vResynIdSeq, vResynIdSeq + nResyn, 
-                                    vFinishedMark, thrust::identity<int>());
+                                    vFinishedMark, [] __host__ __device__ (int x) { return (bool)x; });
     assert(pNewListEnd - vResynIdSeq <= nResyn);
     int nReplace = pNewListEnd - vResynIdSeq;
     if(verbose>=2)  printf("Number of subgraphs to be inserted: %d\n", nReplace);
@@ -532,7 +532,7 @@ int insertMFFCs(uint64 * htDestKeys, uint32 * htDestValues, int htDestCapacity,
 
         // shrink according to vFinishedMark
         pNewListEnd = thrust::remove_if(thrust::device, vResynIdSeq, vResynIdSeq + nReplace, 
-                                        vFinishedMark, thrust::identity<int>());
+                                        vFinishedMark, [] __host__ __device__ (int x) { return (bool)x; });
         cudaDeviceSynchronize();
         assert(pNewListEnd - vResynIdSeq <= nReplace);
         nReplace = pNewListEnd - vResynIdSeq;

@@ -7,6 +7,7 @@
 #include <vector>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/functional.h>
+#include <cuda/std/tuple>
 
 #define NUM_BLOCKS(n, block_size) (((n) + (block_size) - 1) / (block_size))
 #define THREAD_PER_BLOCK 128
@@ -68,35 +69,35 @@ struct getValueFilteredByMask {
     getValueFilteredByMask(MaskT _maskTrue) : maskTrue(_maskTrue) {}
     
     __host__ __device__
-    ValueT operator()(const thrust::tuple<ValueT, MaskT> &elem) const { 
-        return thrust::get<1>(elem) == maskTrue ? thrust::get<0>(elem) : 0;
+    ValueT operator()(const cuda::std::tuple<ValueT, MaskT> &elem) const { 
+        return cuda::std::get<1>(elem) == maskTrue ? cuda::std::get<0>(elem) : 0;
     }
 };
 
 template <typename IdT, typename LevelT>
 struct decreaseLevelIds {
     __host__ __device__
-    bool operator()(const thrust::tuple<IdT, LevelT> &e1, const thrust::tuple<IdT, LevelT> &e2) const {
-        return thrust::get<1>(e1) == thrust::get<1>(e2) ? 
-            (thrust::get<0>(e1) > thrust::get<0>(e2)) : (thrust::get<1>(e1) > thrust::get<1>(e2));
-        // return thrust::get<1>(e1) > thrust::get<1>(e2);
+    bool operator()(const cuda::std::tuple<IdT, LevelT> &e1, const cuda::std::tuple<IdT, LevelT> &e2) const {
+        return cuda::std::get<1>(e1) == cuda::std::get<1>(e2) ? 
+            (cuda::std::get<0>(e1) > cuda::std::get<0>(e2)) : (cuda::std::get<1>(e1) > cuda::std::get<1>(e2));
+        // return cuda::std::get<1>(e1) > cuda::std::get<1>(e2);
     }
 };
 
 template <typename IdT, typename LevelT>
 struct decreaseLevels {
     __host__ __device__
-    bool operator()(const thrust::tuple<IdT, LevelT> &e1, const thrust::tuple<IdT, LevelT> &e2) const {
-        return thrust::get<1>(e1) > thrust::get<1>(e2);
+    bool operator()(const cuda::std::tuple<IdT, LevelT> &e1, const cuda::std::tuple<IdT, LevelT> &e2) const {
+        return cuda::std::get<1>(e1) > cuda::std::get<1>(e2);
     }
 };
 
 template <typename IdT, typename LevelT>
 struct decreaseLevelsPerm {
     __host__ __device__
-    bool operator()(const thrust::tuple<IdT, LevelT, int> &e1, const thrust::tuple<IdT, LevelT, int> &e2) const {
-        return thrust::get<1>(e1) == thrust::get<1>(e2) ? 
-            (thrust::get<2>(e1) > thrust::get<2>(e2)) : (thrust::get<1>(e1) > thrust::get<1>(e2));
+    bool operator()(const cuda::std::tuple<IdT, LevelT, int> &e1, const cuda::std::tuple<IdT, LevelT, int> &e2) const {
+        return cuda::std::get<1>(e1) == cuda::std::get<1>(e2) ? 
+            (cuda::std::get<2>(e1) > cuda::std::get<2>(e2)) : (cuda::std::get<1>(e1) > cuda::std::get<1>(e2));
     }
 };
 

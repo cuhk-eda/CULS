@@ -22,8 +22,8 @@ __managed__ int nNewObjs;
 
 struct isNotSmallMffc {
     __host__ __device__
-    bool operator()(const thrust::tuple<int, int> &e) const {
-        return thrust::get<0>(e) == -1 || thrust::get<1>(e) >= 2;
+    bool operator()(const cuda::std::tuple<int, int> &e) const {
+        return cuda::std::get<0>(e) == -1 || cuda::std::get<1>(e) >= 2;
     }
 };
 
@@ -1034,7 +1034,7 @@ refactorPerform(bool fUseZeros, int cutSize,
     int * pResynIndEnd = thrust::copy_if(
         thrust::device, 
         vIdxSeq + nPIs + 1, vIdxSeq + nObjs, 
-        thrust::make_zip_iterator(thrust::make_tuple(vCutSizes + nPIs + 1, vNumSaved + nPIs + 1)),
+        thrust::make_zip_iterator(vCutSizes + nPIs + 1, vNumSaved + nPIs + 1),
         vResynInd,
         isNotSmallMffc()
     );

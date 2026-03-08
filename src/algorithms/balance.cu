@@ -385,10 +385,10 @@ __global__ void prepareReconstructArrays(const int * vGatheredReadyCovers, const
         if (sortDecId) {
             thrust::sort(
                 thrust::seq, 
-                thrust::make_zip_iterator(thrust::make_tuple(&vLocalReconstructArrays[localArrayStartIdx], 
-                                          &vLocalReconstructLevels[localArrayStartIdx])), 
-                thrust::make_zip_iterator(thrust::make_tuple(&vLocalReconstructArrays[localArrayStartIdx + length], 
-                                          &vLocalReconstructLevels[localArrayStartIdx + length])), 
+                thrust::make_zip_iterator(&vLocalReconstructArrays[localArrayStartIdx], 
+                                          &vLocalReconstructLevels[localArrayStartIdx]), 
+                thrust::make_zip_iterator(&vLocalReconstructArrays[localArrayStartIdx + length], 
+                                          &vLocalReconstructLevels[localArrayStartIdx + length]), 
                 dUtils::decreaseLevelIds<int, int>()
             );
 
@@ -404,18 +404,18 @@ __global__ void prepareReconstructArrays(const int * vGatheredReadyCovers, const
             // );
         } else {
             thrust::shuffle(thrust::seq, 
-                        thrust::make_zip_iterator(thrust::make_tuple(&vLocalReconstructArrays[localArrayStartIdx], 
-                                          &vLocalReconstructLevels[localArrayStartIdx])), 
-                        thrust::make_zip_iterator(thrust::make_tuple(&vLocalReconstructArrays[localArrayStartIdx + length], 
-                                          &vLocalReconstructLevels[localArrayStartIdx + length])), 
+                        thrust::make_zip_iterator(&vLocalReconstructArrays[localArrayStartIdx], 
+                                          &vLocalReconstructLevels[localArrayStartIdx]), 
+                        thrust::make_zip_iterator(&vLocalReconstructArrays[localArrayStartIdx + length], 
+                                          &vLocalReconstructLevels[localArrayStartIdx + length]), 
                         rng);
 
             thrust::sort(
                 thrust::seq, 
-                thrust::make_zip_iterator(thrust::make_tuple(&vLocalReconstructArrays[localArrayStartIdx], 
-                                          &vLocalReconstructLevels[localArrayStartIdx])), 
-                thrust::make_zip_iterator(thrust::make_tuple(&vLocalReconstructArrays[localArrayStartIdx + length], 
-                                          &vLocalReconstructLevels[localArrayStartIdx + length])), 
+                thrust::make_zip_iterator(&vLocalReconstructArrays[localArrayStartIdx], 
+                                          &vLocalReconstructLevels[localArrayStartIdx]), 
+                thrust::make_zip_iterator(&vLocalReconstructArrays[localArrayStartIdx + length], 
+                                          &vLocalReconstructLevels[localArrayStartIdx + length]), 
                 dUtils::decreaseLevels<int, int>()
             );
         }
@@ -1231,8 +1231,8 @@ std::tuple<int *, int *, int *, int *, int>
                 // get max id in this batch of values filtered by mask, use it to update id counter
                 int maxId = thrust::transform_reduce(
                     thrust::device,
-                    thrust::make_zip_iterator(thrust::make_tuple(vStepNodeValues, vStepNodeMask)),
-                    thrust::make_zip_iterator(thrust::make_tuple(vStepNodeValues + thisReadyCovers, vStepNodeMask + thisReadyCovers)),
+                    thrust::make_zip_iterator(vStepNodeValues, vStepNodeMask),
+                    thrust::make_zip_iterator(vStepNodeValues + thisReadyCovers, vStepNodeMask + thisReadyCovers),
                     dUtils::getValueFilteredByMask<uint32, int>(1), // 1 is true value for mask
                     0,                                              // init value
                     thrust::maximum<uint32>()
