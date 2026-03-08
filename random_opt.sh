@@ -18,7 +18,7 @@ if [[ ! -x "$GPULS" ]]; then
 fi
 
 # Available single-step operations (lighter-weight, safe to repeat)
-OPS=(b rw rf rs st)
+OPS=(b rw rf)
 
 # Build a semicolon-separated command string
 CMD="read ${INPUT}"
