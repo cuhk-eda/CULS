@@ -235,7 +235,7 @@ Aig::strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * p
     if (nDangling > 0) {
         pNewGlobalListEnd = thrust::remove_if(
             thrust::device, vRemainNodes, vRemainNodes + nNodes, 
-            vMarks, thrust::identity<int>()
+            vMarks, [] __host__ __device__ (int x) { return (bool)x; }
         );
         nRemain = pNewGlobalListEnd - vRemainNodes;
         assert(nRemain + nDangling == nNodes);
@@ -252,13 +252,13 @@ Aig::strash(const int * pFanin0, const int * pFanin1, const int * pOuts, int * p
 
         pNewGlobalListEnd = thrust::copy_if(
             thrust::device, vRemainNodes, vRemainNodes + nRemain, 
-            vMarks, vReadyNodes, thrust::identity<int>()
+            vMarks, vReadyNodes, [] __host__ __device__ (int x) { return (bool)x; }
         );
         nReady = pNewGlobalListEnd - vReadyNodes;
 
         pNewGlobalListEnd = thrust::remove_if(
             thrust::device, vRemainNodes, vRemainNodes + nRemain, 
-            vMarks, thrust::identity<int>()
+            vMarks, [] __host__ __device__ (int x) { return (bool)x; }
         );
         assert((pNewGlobalListEnd - vRemainNodes) + nReady == nRemain);
         nRemain = pNewGlobalListEnd - vRemainNodes;

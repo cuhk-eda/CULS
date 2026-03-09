@@ -11,8 +11,8 @@ namespace Resub{
 
 struct isNotSmallMffcResub {
     __host__ __device__
-    bool operator()(const thrust::tuple<int, int> &e) const {
-        return thrust::get<0>(e) == -1 || thrust::get<1>(e) >= 2;
+    bool operator()(const cuda::std::tuple<int, int> &e) const {
+        return cuda::std::get<0>(e) == -1 || cuda::std::get<1>(e) >= 2;
     }
 };
 
