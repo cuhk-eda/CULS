@@ -5,7 +5,7 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
 ## Dependencies
 * CMake >= 3.8
 * GCC >= 7.5.0
-* CUDA >= 11.4
+* CUDA >= 11.4, **<= 12.5**
 
 ## Building
 * Build as a standalone tool:
@@ -75,37 +75,44 @@ supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kon
 
 ## Publications
 * Shiju Lin, Jinwei Liu, Tianji Liu, Martin D.F. Wong, Evangeline F.Y. Young, 
-"NovelRewrite: Node-Level Parallel AIG Rewriting", 
+"NovelRewrite: Node-Level Parallel AIG Rewriting," 
 59th ACM/IEEE Design Automation Conference (DAC), 2022.
-* Tianji Liu, Evangeline F.Y. Young, "Rethinking AIG Resynthesis in Parallel", 
+* Tianji Liu, Evangeline F.Y. Young, "Rethinking AIG Resynthesis in Parallel," 
 60th ACM/IEEE Design Automation Conference (DAC), 2023.
 * Yang Sun, Tianji Liu, Martin D.F. Wong, Evangeline F.Y. Young, 
-"Massively Parallel AIG Resubstitution", 
+"Massively Parallel AIG Resubstitution," 
 61st ACM/IEEE Design Automation Conference (DAC), 2024.
 * Tianji Liu, Lei Chen, Xing Li, Mingxuan Yuan, Evangeline F.Y. Young, 
-"FineMap: A Fine-grained GPU-parallel LUT Mapping Engine", 
+"FineMap: A Fine-grained GPU-parallel LUT Mapping Engine," 
 29th Asia and South Pacific Design Automation Conference (ASP-DAC), 2024.
 * Tianji Liu, Yang Sun, Lei Chen, Xing Li, Mingxuan Yuan, Evangeline F.Y. Young,
-"A Unified Parallel Framework for LUT Mapping and Logic Optimization",
+"A Unified Parallel Framework for LUT Mapping and Logic Optimization,"
 IEEE Transactions on Computer-Aided Design of Integrated Circuits 
 and Systems (TCAD), 2024.
 * Tianji Liu, Evangeline F.Y. Young, "Simulation-based Parallel Sweeping: 
-A New Perspective on Combinational Equivalence Checking", 
-62nd ACM/IEEE Design Automation Conference (DAC), 2025. 
+A New Perspective on Combinational Equivalence Checking," 
+62nd ACM/IEEE Design Automation Conference (DAC), 2025.
+* Tianji Liu, Evangeline F.Y. Young,
+"Simulation-based Combinational Equivalence Checking with Multiple GPUs,"
+IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems (TCAD), 2026.
+* Yang Sun, Tianji Liu, Martin D.F. Wong, Evangeline F.Y. Young,
+"Scalable Parallel Logic Resubstitution with Advanced Don't Care Optimization,"
+IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems (TCAD), 2026.
 
 ## Other Algorithms Developed on Top of CULS
 * GPU LUT mapping
 * GPU mapping-based AIG optimization
-* GPU simulation-based combinational equivalence checking
+* GPU simulation-based combinational equivalence checking (with multi-GPU support)
+* GPU resubstitution with don't-care-based optimization support
 
 These algorithms are not open-sourced in CULS due to various reasons, but we can provide
 binary executables containing their implementations. To request the executables, 
-please send an email to Tianji Liu including your name, affiliation, 
+please send an email to the corresponding contributor including your name, affiliation, 
 and the intended use of the executable.
 
 ## Contributors
 * [Shiju Lin](https://shijulin.github.io/): GPU rewriting.
 * [Jinwei Liu](https://anticold.github.io/): GPU rewriting.
 * [Tianji Liu](https://tefantasy.github.io/): GPU refactoring, balancing,
-LUT mapping, mapping-based AIG optimization, GPU simulation-based CEC.
-* Yang Sun: GPU resubstitution, mapping-based AIG optimization.
+LUT mapping, mapping-based AIG optimization, GPU simulation-based CEC (with multi-GPU support).
+* Yang Sun: GPU resubstitution (with don't-care-based optimization support), mapping-based AIG optimization.
