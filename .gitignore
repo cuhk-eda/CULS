@@ -4,10 +4,8 @@ build*/
 *.o
 *.log
 *.csv
-*.aig
 *.aag
 *.txt
-*.blif
 test_cuda*
 abc*
 .cache/
